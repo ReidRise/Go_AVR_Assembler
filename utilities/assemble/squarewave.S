@@ -1,19 +1,19 @@
 ; Setup stack
-LDI R16, 0x02   ; RAMEND = 0x025F
+LDI R16, 0x08   ; RAMEND = 0x025F
 OUT 0x3E, R16   ; SPH (Stack Pointer High) = 0x02
-LDI R16, 0x5f
+LDI R16, 0xff
 OUT 0x3D, R16   ; SPL (Stack Pointer Low) = 0x5F
 
 ; Stand up Port B as a output
 LDI R16, 0xff 
-OUT 0x17, R16   ;PORTB IS OUTPUT
-LDI R16, 0xaa 
-OUT 0x18, R16
+OUT 0x04, R16   ;PORTB IS OUTPUT
+LDI R16, 0x00 
+OUT 0x05, R16
 
 ; Main loop
 BACK:
 COM R16
-OUT 0x18, R16
+OUT 0x05, R16
 RCALL delay
 RJMP BACK
 
@@ -21,7 +21,7 @@ RJMP BACK
 delay: LDI r22, 1
 la: LDI r23, 1
 l0: LDI r24, 1
-l1: LDI r25, 1
+l1: LDI r25, 10
 l2: LDI r26, 255
 l3: LDI r27, 255
 l4: DEC r27
