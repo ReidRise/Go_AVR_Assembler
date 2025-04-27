@@ -33,7 +33,7 @@ Hobbyists, educators, and low-level developers benefit from having a clean, simp
 ### Assemble your program
 `./main path/to/program.S`
 
-The output is a raw binary or Intel HEX file (future configurable).
+The output is a Intel HEX file (future configurable).
 
 ## Roadmap
 
