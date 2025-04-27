@@ -50,30 +50,30 @@ LPM/ELPM load/store form, 0 <= d <= 31, Z post-increment
 var InstructionSet = map[string]InstructionDef{
 
 	// Arithmetic and Logic Instructions
-	"ADD":  {Operands: 2, ByteCode: 0b0000110000000000, Encode: EncodeTwoRegs},
-	"ADC":  {Operands: 2, ByteCode: 0b0001110000000000, Encode: EncodeTwoRegs},
-	"ADIW": {Operands: 2, ByteCode: 0b1001011000000000, Encode: EncodeWordImm},
-	"SUB":  {Operands: 2, ByteCode: 0b0001100000000000, Encode: EncodeTwoRegs},
-	"SUBI": {Operands: 2, ByteCode: 0b0101000000000000, Encode: EncodeRegImm},
-	"SBC":  {Operands: 2, ByteCode: 0b0000100000000000, Encode: EncodeTwoRegs},
-	"SBCI": {Operands: 2, ByteCode: 0b0100000000000000, Encode: EncodeRegImm},
-	"SBIW": {Operands: 2, ByteCode: 0b1001011100000000, Encode: EncodeWordImm},
-	"AND":  {Operands: 2, ByteCode: 0b0010000000000000, Encode: EncodeTwoRegs},
-	"ANDI": {Operands: 2, ByteCode: 0b0111000000000000, Encode: EncodeRegImm},
-	"OR":   {Operands: 2, ByteCode: 0b0010100000000000, Encode: EncodeTwoRegs},
-	"ORI":  {Operands: 2, ByteCode: 0b0110000000000000, Encode: EncodeRegImm},
-	"EOR":  {Operands: 2, ByteCode: 0b0010010000000000, Encode: EncodeTwoRegs},
-	"COM":  {Operands: 1, ByteCode: 0b1001010000000000, Encode: EncodeReg},
-	"NEG":  {Operands: 1, ByteCode: 0b1001010000000001, Encode: EncodeReg},
-	"SBR":  {Operands: 2, ByteCode: 0b0110000000000000, Encode: EncodeRegImm},
-	"CBR":  {Operands: 2, ByteCode: 0b0111000000000000, Encode: EncodeRegImm}, // Same as ANDI compliment K
-	"INC":  {Operands: 1, ByteCode: 0b1001010000000011, Encode: EncodeReg},
-	"DEC":  {Operands: 1, ByteCode: 0b1001010000001010, Encode: EncodeReg},
-	"TST":  {Operands: 2, ByteCode: 0b0010000000000000, Encode: EncodeTwoRegs}, // Technically its Rd & Rd
-	"CLR":  {Operands: 2, ByteCode: 0b0010010000000000, Encode: EncodeTwoRegs}, // Technically its Rd ^ Rd
-	"SER":  {Operands: 1, ByteCode: 0b1110111100001111, Encode: EncodeRegGP},
-	"MUL":  {Operands: 2, ByteCode: 0b1001110000000000, Encode: EncodeTwoRegs},
-	"MULS": {Operands: 2, ByteCode: 0b0000001000000000, Encode: EncodeAdvMath},
+	"ADD":  {Operands: 2, ByteCode: 0b_0000_1100_0000_0000, Encode: EncodeTwoRegs},
+	"ADC":  {Operands: 2, ByteCode: 0b_0001_1100_0000_0000, Encode: EncodeTwoRegs},
+	"ADIW": {Operands: 2, ByteCode: 0b_1001_0110_0000_0000, Encode: EncodeWordImm},
+	"SUB":  {Operands: 2, ByteCode: 0b_0001_1000_0000_0000, Encode: EncodeTwoRegs},
+	"SUBI": {Operands: 2, ByteCode: 0b_0101_0000_0000_0000, Encode: EncodeRegImm},
+	"SBC":  {Operands: 2, ByteCode: 0b_0000_1000_0000_0000, Encode: EncodeTwoRegs},
+	"SBCI": {Operands: 2, ByteCode: 0b_0100_0000_0000_0000, Encode: EncodeRegImm},
+	"SBIW": {Operands: 2, ByteCode: 0b_1001_0111_0000_0000, Encode: EncodeWordImm},
+	"AND":  {Operands: 2, ByteCode: 0b_0010_0000_0000_0000, Encode: EncodeTwoRegs},
+	"ANDI": {Operands: 2, ByteCode: 0b_0111_0000_0000_0000, Encode: EncodeRegImm},
+	"OR":   {Operands: 2, ByteCode: 0b_0010_1000_0000_0000, Encode: EncodeTwoRegs},
+	"ORI":  {Operands: 2, ByteCode: 0b_0110_0000_0000_0000, Encode: EncodeRegImm},
+	"EOR":  {Operands: 2, ByteCode: 0b_0010_0100_0000_0000, Encode: EncodeTwoRegs},
+	"COM":  {Operands: 1, ByteCode: 0b_1001_0100_0000_0000, Encode: EncodeReg},
+	"NEG":  {Operands: 1, ByteCode: 0b_1001_0100_0000_0001, Encode: EncodeReg},
+	"SBR":  {Operands: 2, ByteCode: 0b_0110_0000_0000_0000, Encode: EncodeRegImm},
+	"CBR":  {Operands: 2, ByteCode: 0b_0111_0000_0000_0000, Encode: EncodeRegImm}, // Same as ANDI compliment K
+	"INC":  {Operands: 1, ByteCode: 0b_1001_0100_0000_0011, Encode: EncodeReg},
+	"DEC":  {Operands: 1, ByteCode: 0b_1001_0100_0000_1010, Encode: EncodeReg},
+	"TST":  {Operands: 2, ByteCode: 0b_0010_0000_0000_0000, Encode: EncodeTwoRegs}, // Technically its Rd & Rd
+	"CLR":  {Operands: 2, ByteCode: 0b_0010_0100_0000_0000, Encode: EncodeTwoRegs}, // Technically its Rd ^ Rd
+	"SER":  {Operands: 1, ByteCode: 0b_1110_1111_0000_1111, Encode: EncodeRegGP},
+	"MUL":  {Operands: 2, ByteCode: 0b_1001_1100_0000_0000, Encode: EncodeTwoRegs},
+	"MULS": {Operands: 2, ByteCode: 0b_0000_0010_0000_0000, Encode: EncodeAdvMath},
 	// "MULSU":
 	// "FMUL":
 	// "FMULS":
@@ -81,61 +81,61 @@ var InstructionSet = map[string]InstructionDef{
 	// "DES":
 
 	// Change of Flow Instructions
-	"RJMP": {Operands: 1, ByteCode: 0b1100000000000000, Encode: EncodeRelBranch},
+	"RJMP": {Operands: 1, ByteCode: 0b_1100_0000_0000_0000, Encode: EncodeRelBranch},
 	// "IJMP":
 	// "EIJMP":
-	"RCALL": {Operands: 1, ByteCode: 0b1101000000000000, Encode: EncodeRelBranch},
+	"RCALL": {Operands: 1, ByteCode: 0b_1101_0000_0000_0000, Encode: EncodeRelBranch},
 	// "ICALL":
 	// "EICALL":
 	// "CALL":
-	"RET":  {Operands: 0, ByteCode: 0b1001010100001000, Encode: EncodeConstant},
-	"RETI": {Operands: 0, ByteCode: 0b1001010100011000, Encode: EncodeConstant},
-	"CPSE": {Operands: 2, ByteCode: 0b0001000000000000, Encode: EncodeTwoRegs},
-	"CP":   {Operands: 2, ByteCode: 0b0001010000000000, Encode: EncodeTwoRegs},
-	"CPC":  {Operands: 2, ByteCode: 0b0000010000000000, Encode: EncodeTwoRegs},
-	"CPI":  {Operands: 2, ByteCode: 0b0011000000000000, Encode: EncodeRegImm},
-	"SBRC": {Operands: 2, ByteCode: 0b1111110000000000, Encode: EncodeSkipBit},
-	"SBRS": {Operands: 2, ByteCode: 0b1111111000000000, Encode: EncodeSkipBit},
-	"SBIC": {Operands: 2, ByteCode: 0b1001100100000000, Encode: EncodeSkipBitIO},
-	"SBIS": {Operands: 2, ByteCode: 0b1001101100000000, Encode: EncodeSkipBitIO},
-	"BRBS": {Operands: 2, ByteCode: 0b1111000000000000, Encode: EncodeBranchSreg},
-	"BRBC": {Operands: 2, ByteCode: 0b1111010000000000, Encode: EncodeBranchSreg},
-	"BREQ": {Operands: 2, ByteCode: 0b1111000000000001, Encode: EncodeBranchSreg}, // s = 0b001
-	"BRNE": {Operands: 2, ByteCode: 0b1111010000000001, Encode: EncodeBranchSreg}, // s = 0b001
-	"BRCS": {Operands: 2, ByteCode: 0b1111000000000000, Encode: EncodeBranchSreg}, // s = 0b000
-	"BRCC": {Operands: 2, ByteCode: 0b1111010000000000, Encode: EncodeBranchSreg}, // s = 0b000
-	"BRSH": {Operands: 2, ByteCode: 0b1111010000000000, Encode: EncodeBranchSreg}, // s = 0b000
-	"BRLO": {Operands: 2, ByteCode: 0b1111000000000000, Encode: EncodeBranchSreg}, // s = 0b000
-	"BRMI": {Operands: 2, ByteCode: 0b1111000000000010, Encode: EncodeBranchSreg}, // s = 0b010
-	"BRPL": {Operands: 2, ByteCode: 0b1111010000000010, Encode: EncodeBranchSreg}, // s = 0b010
-	"BRGE": {Operands: 2, ByteCode: 0b1111010000000100, Encode: EncodeBranchSreg}, // s = 0b100
-	"BRLT": {Operands: 2, ByteCode: 0b1111000000000100, Encode: EncodeBranchSreg}, // s = 0b100
-	"BRHS": {Operands: 2, ByteCode: 0b1111000000000101, Encode: EncodeBranchSreg}, // s = 0b101
-	"BRHC": {Operands: 2, ByteCode: 0b1111010000000101, Encode: EncodeBranchSreg}, // s = 0b101
-	"BRTS": {Operands: 2, ByteCode: 0b1111000000000110, Encode: EncodeBranchSreg}, // s = 0b110
-	"BRTC": {Operands: 2, ByteCode: 0b1111010000000110, Encode: EncodeBranchSreg}, // s = 0b110
-	"BRVS": {Operands: 2, ByteCode: 0b1111000000000011, Encode: EncodeBranchSreg}, // s = 0b011
-	"BRVC": {Operands: 2, ByteCode: 0b1111010000000011, Encode: EncodeBranchSreg}, // s = 0b011
-	"BRIE": {Operands: 2, ByteCode: 0b1111000000000111, Encode: EncodeBranchSreg}, // s = 0b111
-	"BRID": {Operands: 2, ByteCode: 0b1111010000000111, Encode: EncodeBranchSreg}, // s = 0b111
+	"RET":  {Operands: 0, ByteCode: 0b_1001_0101_0000_1000, Encode: EncodeConstant},
+	"RETI": {Operands: 0, ByteCode: 0b_1001_0101_0001_1000, Encode: EncodeConstant},
+	"CPSE": {Operands: 2, ByteCode: 0b_0001_0000_0000_0000, Encode: EncodeTwoRegs},
+	"CP":   {Operands: 2, ByteCode: 0b_0001_0100_0000_0000, Encode: EncodeTwoRegs},
+	"CPC":  {Operands: 2, ByteCode: 0b_0000_0100_0000_0000, Encode: EncodeTwoRegs},
+	"CPI":  {Operands: 2, ByteCode: 0b_0011_0000_0000_0000, Encode: EncodeRegImm},
+	"SBRC": {Operands: 2, ByteCode: 0b_1111_1100_0000_0000, Encode: EncodeSkipBit},
+	"SBRS": {Operands: 2, ByteCode: 0b_1111_1110_0000_0000, Encode: EncodeSkipBit},
+	"SBIC": {Operands: 2, ByteCode: 0b_1001_1001_0000_0000, Encode: EncodeSkipBitIO},
+	"SBIS": {Operands: 2, ByteCode: 0b_1001_1011_0000_0000, Encode: EncodeSkipBitIO},
+	"BRBS": {Operands: 2, ByteCode: 0b_1111_0000_0000_0000, Encode: EncodeBranchSreg},
+	"BRBC": {Operands: 2, ByteCode: 0b_1111_0100_0000_0000, Encode: EncodeBranchSreg},
+	"BREQ": {Operands: 2, ByteCode: 0b_1111_0000_0000_0001, Encode: EncodeBranchSreg}, // s = 0b001
+	"BRNE": {Operands: 2, ByteCode: 0b_1111_0100_0000_0001, Encode: EncodeBranchSreg}, // s = 0b001
+	"BRCS": {Operands: 2, ByteCode: 0b_1111_0000_0000_0000, Encode: EncodeBranchSreg}, // s = 0b000
+	"BRCC": {Operands: 2, ByteCode: 0b_1111_0100_0000_0000, Encode: EncodeBranchSreg}, // s = 0b000
+	"BRSH": {Operands: 2, ByteCode: 0b_1111_0100_0000_0000, Encode: EncodeBranchSreg}, // s = 0b000
+	"BRLO": {Operands: 2, ByteCode: 0b_1111_0000_0000_0000, Encode: EncodeBranchSreg}, // s = 0b000
+	"BRMI": {Operands: 2, ByteCode: 0b_1111_0000_0000_0010, Encode: EncodeBranchSreg}, // s = 0b010
+	"BRPL": {Operands: 2, ByteCode: 0b_1111_0100_0000_0010, Encode: EncodeBranchSreg}, // s = 0b010
+	"BRGE": {Operands: 2, ByteCode: 0b_1111_0100_0000_0100, Encode: EncodeBranchSreg}, // s = 0b100
+	"BRLT": {Operands: 2, ByteCode: 0b_1111_0000_0000_0100, Encode: EncodeBranchSreg}, // s = 0b100
+	"BRHS": {Operands: 2, ByteCode: 0b_1111_0000_0000_0101, Encode: EncodeBranchSreg}, // s = 0b101
+	"BRHC": {Operands: 2, ByteCode: 0b_1111_0100_0000_0101, Encode: EncodeBranchSreg}, // s = 0b101
+	"BRTS": {Operands: 2, ByteCode: 0b_1111_0000_0000_0110, Encode: EncodeBranchSreg}, // s = 0b110
+	"BRTC": {Operands: 2, ByteCode: 0b_1111_0100_0000_0110, Encode: EncodeBranchSreg}, // s = 0b110
+	"BRVS": {Operands: 2, ByteCode: 0b_1111_0000_0000_0011, Encode: EncodeBranchSreg}, // s = 0b011
+	"BRVC": {Operands: 2, ByteCode: 0b_1111_0100_0000_0011, Encode: EncodeBranchSreg}, // s = 0b011
+	"BRIE": {Operands: 2, ByteCode: 0b_1111_0000_0000_0111, Encode: EncodeBranchSreg}, // s = 0b111
+	"BRID": {Operands: 2, ByteCode: 0b_1111_0100_0000_0111, Encode: EncodeBranchSreg}, // s = 0b111
 
 	// Data Transfer Instructions
-	"MOV":  {Operands: 2, ByteCode: 0b0010110000000000, Encode: EncodeTwoRegs},
-	"MOVW": {Operands: 2, ByteCode: 0b0000000100000000, Encode: EncodeAdvMath},
-	"LDI":  {Operands: 2, ByteCode: 0b1110000000000000, Encode: EncodeRegImm},
+	"MOV":  {Operands: 2, ByteCode: 0b_0010_1100_0000_0000, Encode: EncodeTwoRegs},
+	"MOVW": {Operands: 2, ByteCode: 0b_0000_0001_0000_0000, Encode: EncodeAdvMath},
+	"LDI":  {Operands: 2, ByteCode: 0b_1110_0000_0000_0000, Encode: EncodeRegImm},
 	// "LDS":  {Operands: 2, ByteCode: 0b1001000000000000, Encode: EncodeLoadMemory},
 	// "LD":
 	// "LDD":
 	// "STS": {Operands: 2, ByteCode: 0b1001001000000000, Encode: EncodeLoadMemory},
 	// "ST":
 	// "STD":
-	"LPM":  {Operands: 2, ByteCode: 0b1001_0000_0000_0000, Encode: EncodeLPM}, // zo-form: 1001_0101_110q_1000 (opcode nibble 3) | ls-form: 1001_000d_dddd_01q0 (opcode nibble 4)
-	"ELPM": {Operands: 2, ByteCode: 0b1001_0000_0000_0000, Encode: EncodeLPM},
+	"LPM":  {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLPM}, // zo-form: 1001_0101_110q_1000 (opcode nibble 3) | ls-form: 1001_000d_dddd_01q0 (opcode nibble 4)
+	"ELPM": {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLPM},
 	// "SPM":
-	"IN":   {Operands: 2, ByteCode: 0b1011000000000000, Encode: EncodeIOpsIn},
-	"OUT":  {Operands: 2, ByteCode: 0b1011100000000000, Encode: EncodeIOpsOut},
-	"PUSH": {Operands: 2, ByteCode: 0b1001001000001111, Encode: EncodeReg},
-	"POP":  {Operands: 2, ByteCode: 0b1001000000001111, Encode: EncodeReg},
+	"IN":   {Operands: 2, ByteCode: 0b_1011_0000_0000_0000, Encode: EncodeIOpsIn},
+	"OUT":  {Operands: 2, ByteCode: 0b_1011_1000_0000_0000, Encode: EncodeIOpsOut},
+	"PUSH": {Operands: 2, ByteCode: 0b_1001_0010_0000_1111, Encode: EncodeReg},
+	"POP":  {Operands: 2, ByteCode: 0b_1001_0000_0000_1111, Encode: EncodeReg},
 	// "XCH":
 	// "LAS":
 	// "LAC":
@@ -143,17 +143,17 @@ var InstructionSet = map[string]InstructionDef{
 
 	// Bit and Bit-Test Instructions
 	// "LSL":
-	"LSR": {Operands: 1, ByteCode: 0b1001010000000110, Encode: EncodeShift},
+	"LSR": {Operands: 1, ByteCode: 0b_1001_0100_0000_0110, Encode: EncodeShift},
 	// "ROL":
-	"ROR": {Operands: 1, ByteCode: 0b1001010000000111, Encode: EncodeShift},
-	"ASR": {Operands: 1, ByteCode: 0b1001010000000101, Encode: EncodeShift},
+	"ROR": {Operands: 1, ByteCode: 0b_1001_0100_0000_0111, Encode: EncodeShift},
+	"ASR": {Operands: 1, ByteCode: 0b_1001_0100_0000_0101, Encode: EncodeShift},
 	// "SWAP":
 	// "SBI":
 	// "CBI":
 	// "BST":
 	// "BLD":
-	"BSET": {Operands: 1, ByteCode: 0b1001010000001000, Encode: EncodeSREGBitOp},
-	"BCLR": {Operands: 1, ByteCode: 0b1001010010001000, Encode: EncodeSREGBitOp},
+	"BSET": {Operands: 1, ByteCode: 0b_1001_0100_0000_1000, Encode: EncodeSREGBitOp},
+	"BCLR": {Operands: 1, ByteCode: 0b_1001_0100_1000_1000, Encode: EncodeSREGBitOp},
 	// "SEC":
 	// "CLC":
 	// "SEN":
@@ -171,10 +171,10 @@ var InstructionSet = map[string]InstructionDef{
 	// "CLH":
 
 	// MCU Control Instructions
-	"BREAK": {Operands: 0, ByteCode: 0b1001010110011000, Encode: EncodeConstant},
-	"NOP":   {Operands: 0, ByteCode: 0b0000000000000000, Encode: EncodeConstant},
-	"SLEEP": {Operands: 0, ByteCode: 0b1001010110001000, Encode: EncodeConstant},
-	"WDR":   {Operands: 0, ByteCode: 0b1001010110101000, Encode: EncodeConstant},
+	"BREAK": {Operands: 0, ByteCode: 0b_1001_0101_1001_1000, Encode: EncodeConstant},
+	"NOP":   {Operands: 0, ByteCode: 0b_0000_0000_0000_0000, Encode: EncodeConstant},
+	"SLEEP": {Operands: 0, ByteCode: 0b_1001_0101_1000_1000, Encode: EncodeConstant},
+	"WDR":   {Operands: 0, ByteCode: 0b_1001_0101_1010_1000, Encode: EncodeConstant},
 }
 
 func EncodeRelBranch(bytecode uint16, kk uint16, _ uint16) [1]uint16 {
