@@ -43,12 +43,21 @@ func main() {
 	compiled_assembly := []string{}
 	// Parse Operands with context of all labels
 	for i := 0; i < len(instructions); i++ {
-		ops, err := avrassembler.InstructionParse[instructions[i].Mnemonic](instructions[i].Operands, instructions[i].Line)
+		encodingFunc, ok := avrassembler.InstructionParse[instructions[i].Mnemonic]
+		if !ok {
+			fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+			os.Exit(1)
+		}
+		ops, err := encodingFunc(instructions[i].Operands, instructions[i].Line)
 		if err != nil {
 			fmt.Printf("[E] %s, Found on line %d\n", err, instructions[i].Line)
 			os.Exit(1)
 		}
-		ins := avrassembler.InstructionSet[instructions[i].Mnemonic]
+		ins, ok := avrassembler.InstructionSet[instructions[i].Mnemonic]
+		if !ok {
+			fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+			os.Exit(1)
+		}
 
 		enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
 
