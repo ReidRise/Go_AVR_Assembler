@@ -1,8 +1,8 @@
 ; Setup stack
 LDI R16, 0x08   ; RAMEND = 0x08FF
-OUT 0x3E, R16   ; SPH (Stack Pointer High) = 0x02
+OUT 0x3E, R16   ; SPH (Stack Pointer High) = 0x08
 LDI R16, 0xff
-OUT 0x3D, R16   ; SPL (Stack Pointer Low) = 0x5F
+OUT 0x3D, R16   ; SPL (Stack Pointer Low) = 0xFF
 
 ; Stand up Port B as a output
 LDI R16, 0xff 
