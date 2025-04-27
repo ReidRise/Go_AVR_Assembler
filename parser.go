@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+type PointerRegister byte
+
+const (
+	X PointerRegister = iota
+	Y
+	Z
+)
+
 type Instruction struct {
 	Mnemonic string
 	Operands []string
@@ -70,6 +78,8 @@ var InstructionParse = map[string]ParserFunc{
 	"RJMP":  parseRelBranch,
 	"RCALL": parseRelBranch,
 	"RET":   parseConst,
+	"LPM":   parseLPM,
+	"ELPM":  parseELPM,
 	"NOP":   parseConst,
 }
 
@@ -122,6 +132,27 @@ func parseRegister4bits(reg_str string) (reg_uint uint16, err error) {
 		return 0, fmt.Errorf(" register [%s] does not exist", reg_str)
 	}
 	return uint16(reg_num), nil
+}
+
+func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, err error) {
+	reg, post_inc, err = 0, false, nil
+
+	switch strings.ToUpper(reg_str[0:1]) {
+	case "X":
+		reg = X
+	case "Y":
+		reg = Y
+	case "Z":
+		reg = Z
+	default:
+		err = fmt.Errorf(" argument [%s] is not X, Y or Z", reg_str)
+	}
+
+	if strings.Contains(reg_str, "+") {
+		post_inc = true
+	}
+
+	return
 }
 
 // Arg Parser
@@ -252,4 +283,56 @@ func parseRegImm(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, err
 	}
 	return ops, nil
+}
+
+func parseLPM(args []string, line_addr int) (ops [2]uint16, err error) {
+	// no arguments provided, this should be in zero-operand form
+	if len(args) == 0 {
+		ops, err = parseConst(args, line_addr)
+		// each encoder function takes 3 arguments, but I need 5
+		// pieces of information for this, so we're gonna encode
+		// it into the 3rd argument, ops[1] (aka zqi)
+		// set z bit to 1
+		ops[1] = 0b100
+		return
+	}
+
+	// arguments provided, assumed to be load/store form
+	ops[0], err = parseRegister5bits(args[0])
+
+	if err != nil {
+		return
+	}
+
+	ptr_reg, post_inc, err := parsePointerRegister(args[1])
+
+	if err != nil {
+		return
+	}
+
+	// NOTE: I have no idea if this is actually true or not
+	//			 I've only seen examples of Z in the docs, so it's
+	//			 unclear whether X or Y are allowed here...
+	if ptr_reg != Z {
+		err = fmt.Errorf("pointer register value must be Z or Z+")
+	}
+
+	// set i bit to 1
+	if post_inc {
+		ops[1] = 0b001
+	}
+
+	return
+}
+
+// these parsing functions never receive information about the actual instruction
+// ELPM needs its own call, and it should reference the LPM parser but set the q bit
+// LPM/ELPM can share an encoder though
+func parseELPM(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops, err = parseLPM(args, line_addr)
+
+	// set the q bit (zqi)
+	ops[1] |= 0b010
+
+	return
 }

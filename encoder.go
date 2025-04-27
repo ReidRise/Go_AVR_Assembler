@@ -8,6 +8,45 @@ type InstructionDef struct {
 	Encode   EncoderFunc
 }
 
+/*
+NOTES TO SELF:
+
+Some instructions have several forms with variable operands and operand types.
+Below I've compiled a list of these instructions and the valid syntax patterns they
+can appear in:
+
+ELPM - Extended Load Program Memory
+* ELPM								Zero oeprand, R0 implied
+* ELPM Rd, Z					Load/store operation, 0 <= d <= 31
+* ELPM Rd, Z+					Load/store operation, 0 <= d <= 31, Z post-increment
+
+LPM - Load Program Memory
+* LPM									Zero operand, R0 implied
+* LPM Rd, Z						Load/store operation, 0 <= d <= 31
+* LPM Rd, Z+					Load/store operation, 0 <= d <= 31, Z post-increment
+
+SPM - Store Program Memory
+* SPM									Zero operand
+* SPM Z+							Zero operand, Z post-increment
+
+*/
+
+/*
+NOTE: q = Extend program memory address with RAMPZ (0 = 0:Z, 1 = RAMPZ:Z)
+
+LPM/ELPM zero-operand form, R0 implied
+1 0 0 1 | 0 1 0 1 | 1 1 0 q | 1 0 0 0
+                  ^ opcode  ^
+
+LPM/ELPM load/store form, 0 <= d <= 31
+1 0 0 1 | 0 0 0 d | d d d d | 0 1 q 0
+                            ^ opcode  ^
+
+LPM/ELPM load/store form, 0 <= d <= 31, Z post-increment
+1 0 0 1 | 0 0 0 d | d d d d | 0 1 q 1
+                            ^ opcode  ^
+*/
+
 var InstructionSet = map[string]InstructionDef{
 
 	// Arithmetic and Logic Instructions
@@ -49,8 +88,8 @@ var InstructionSet = map[string]InstructionDef{
 	// "ICALL":
 	// "EICALL":
 	// "CALL":
-	"RET": {Operands: 0, ByteCode: 0b1001010100001000, Encode: EncodeConstant},
-	// "RETI":
+	"RET":  {Operands: 0, ByteCode: 0b1001010100001000, Encode: EncodeConstant},
+	"RETI": {Operands: 0, ByteCode: 0b1001010100011000, Encode: EncodeConstant},
 	"CPSE": {Operands: 2, ByteCode: 0b0001000000000000, Encode: EncodeTwoRegs},
 	"CP":   {Operands: 2, ByteCode: 0b0001010000000000, Encode: EncodeTwoRegs},
 	"CPC":  {Operands: 2, ByteCode: 0b0000010000000000, Encode: EncodeTwoRegs},
@@ -90,8 +129,8 @@ var InstructionSet = map[string]InstructionDef{
 	// "STS": {Operands: 2, ByteCode: 0b1001001000000000, Encode: EncodeLoadMemory},
 	// "ST":
 	// "STD":
-	// "LPM":
-	// "ELPM":
+	"LPM":  {Operands: 2, ByteCode: 0b1001_0000_0000_0000, Encode: EncodeLPM}, // zo-form: 1001_0101_110q_1000 (opcode nibble 3) | ls-form: 1001_000d_dddd_01q0 (opcode nibble 4)
+	"ELPM": {Operands: 2, ByteCode: 0b1001_0000_0000_0000, Encode: EncodeLPM},
 	// "SPM":
 	"IN":   {Operands: 2, ByteCode: 0b1011000000000000, Encode: EncodeIOpsIn},
 	"OUT":  {Operands: 2, ByteCode: 0b1011100000000000, Encode: EncodeIOpsOut},
@@ -132,10 +171,10 @@ var InstructionSet = map[string]InstructionDef{
 	// "CLH":
 
 	// MCU Control Instructions
-	// "BREAK":
-	"NOP": {Operands: 0, ByteCode: 0b0000000000000000, Encode: EncodeConstant},
-	// "SLEEP":
-	// "WDR":
+	"BREAK": {Operands: 0, ByteCode: 0b1001010110011000, Encode: EncodeConstant},
+	"NOP":   {Operands: 0, ByteCode: 0b0000000000000000, Encode: EncodeConstant},
+	"SLEEP": {Operands: 0, ByteCode: 0b1001010110001000, Encode: EncodeConstant},
+	"WDR":   {Operands: 0, ByteCode: 0b1001010110101000, Encode: EncodeConstant},
 }
 
 func EncodeRelBranch(bytecode uint16, kk uint16, _ uint16) [1]uint16 {
@@ -244,5 +283,42 @@ func EncodeWordImm(bytecode uint16, rd uint16, kk uint16) [1]uint16 {
 func EncodeSREGBitOp(bytecode uint16, s uint16, _ uint16) [1]uint16 {
 	encoded := bytecode
 	encoded |= (s & 0x07) << 4
+	return [1]uint16{encoded}
+}
+
+// zero operand form (z = 0), load/store form: (z = 1)
+// Z no post-increment (i = 0), Z post-increment (i = 1)
+// LPM (q = 0), ELPM (q = 1)
+// NOTE: rd does NOT tell whether the instruction is zo-form or ls-form
+//
+//	 Ex: lpm r0, Z	; explicit rd = r0
+//			 lpm				; implied rd = r0
+func EncodeLPM(bytecode uint16, rd uint16, zqi uint16) [1]uint16 {
+	encoded := bytecode
+	// check form
+	if (zqi & 0b100) != 0 {
+		// zero-operand form
+		// current: 1001_0000_0000_0000
+		// changed: 1001_0101_110q_1000
+
+		// encode the opcode and q
+		encoded |= 0b0000_0101_1100_1000
+		encoded |= (zqi & 0b010) << 3 // q (q = 1 => ELPM)
+
+		return [1]uint16{encoded}
+	}
+
+	// load-store form
+	// current: 1001_0000_0000_000i
+	// changed: 1001_000d_dddd_01qi
+
+	// encode ddddd first
+	encoded = EncodeReg(encoded, rd, zqi)[0]
+
+	// encode q and i
+	encoded |= 0b0100
+	encoded |= (zqi & 0b010) // q (q = 1 => ELPM)
+	encoded |= (zqi & 0x01)  // i (i = 1 => Z+)
+
 	return [1]uint16{encoded}
 }
