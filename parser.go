@@ -67,10 +67,13 @@ var InstructionParse = map[string]ParserFunc{
 	"SUB": parseTwoRegs,
 	//SUBI
 	"SBC":   parseTwoRegs,
+	"SBIS":  parseSkipBit,
 	"LDI":   parseRegImm,
 	"IN":    parseIOpsIn,
 	"OUT":   parseIOpsOut,
 	"CPI":   parseRegImm,
+	"POP":   parseOneReg,
+	"PUSH":  parseOneReg,
 	"BRBC":  pasrseBranchSreg,
 	"BRNE":  pasrseBranchStaticSreg,
 	"BREQ":  pasrseBranchStaticSreg,
@@ -159,6 +162,25 @@ func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, e
 
 func parseConst(args []string, line_addr int) (ops [2]uint16, err error) {
 	return [2]uint16{0, 0}, nil
+}
+
+func parseSkipBit(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops[0], err = parseImmidiateUints(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	if ops[0] > 31 {
+		return [2]uint16{0, 0}, fmt.Errorf("uint value [%d] is not a valid flag [0-31]", ops[0])
+	}
+
+	ops[0], err = parseImmidiateUints(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	if ops[0] > 7 {
+		return [2]uint16{0, 0}, fmt.Errorf("uint value [%d] is not a valid flag [0-7]", ops[0])
+	}
+	return ops, nil
 }
 
 func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err error) {
