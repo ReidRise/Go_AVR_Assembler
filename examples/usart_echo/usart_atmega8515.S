@@ -1,4 +1,3 @@
-.org 0x100
 
 ; Setup stack
 LDI R16, 0x02   ; RAMEND = 0x025F
@@ -9,6 +8,7 @@ OUT 0x3D, R16   ; SPL (Stack Pointer Low) = 0x5F
 ; Stand up Port B as a output
 LDI R16, 0xff 
 OUT 0x17, R16   ;PORTB IS OUTPUT
+.org 0x100
 LDI R16, 0x55 
 OUT 0x18, R16
 
@@ -25,6 +25,7 @@ LDI R16, 0x45
 RCALL USART_Transmit
 RCALL delay
 LDI R16, 0x49
+.org 0x300
 RCALL USART_Transmit
 LDI R16, 0x44
 RCALL USART_Transmit

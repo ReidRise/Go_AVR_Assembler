@@ -5,14 +5,14 @@ import (
 	"fmt"
 )
 
-func ToIntelHex(compiled_assembly []string) (string, error) {
+func ToIntelHex(compiledAssembly []string, startingAddress int) (string, error) {
 	intel_hex := ""
 	intel_header := ""
 	intel_line := ""
-	intel_length := 0
-	for i := 0; i < len(compiled_assembly); i++ {
-		if i != 0 && i%8 == 0 || i == (len(compiled_assembly)-1) {
-			intel_line = intel_line + compiled_assembly[i]
+	intel_length := startingAddress
+	for i := 0; i < len(compiledAssembly); i++ {
+		if i != 0 && i%8 == 0 || i == (len(compiledAssembly)-1) {
+			intel_line = intel_line + compiledAssembly[i]
 			hex_len := fmt.Sprintf("%02x", len(intel_line)/2)
 			hex_addr := fmt.Sprintf("%04x", intel_length)
 			intel_length += len(intel_line) / 2
@@ -24,10 +24,10 @@ func ToIntelHex(compiled_assembly []string) (string, error) {
 			intel_hex += intel_header + intel_line + intel_checksum + "\n"
 			intel_line = ""
 		} else {
-			intel_line = intel_line + compiled_assembly[i]
+			intel_line = intel_line + compiledAssembly[i]
 		}
 	}
-	intel_hex += ":00000001FF"
+	//intel_hex += ":00000001FF"
 	return intel_hex, nil
 }
 

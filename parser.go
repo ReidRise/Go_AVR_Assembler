@@ -44,7 +44,9 @@ func parseMeta(line string) (meta Meta, err error) {
 		meta.Operation = "db"
 		meta.Args = parts[1]
 	case ".org": // Set starting address for code after it
+		println("WE ARE FARMERS ")
 		meta.Operation = "org"
+		println(parts[1])
 		meta.Args = parts[1]
 	case ".macro": // Setup a macro to be inserted into code
 		meta.Operation = "macro"

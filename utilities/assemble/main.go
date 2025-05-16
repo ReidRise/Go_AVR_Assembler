@@ -91,7 +91,7 @@ func main() {
 		}
 
 		if meta.Operation == "org" {
-			avrassembler.AssemblySections[startAddress] = instructions
+			avrassembler.RawAssemblySections[startAddress] = instructions
 			instructions = []avrassembler.Instruction{}
 			startAddress, err = parseImmidiateUints(meta.Args)
 			if err != nil {
@@ -108,48 +108,52 @@ func main() {
 
 		line++
 	}
-	avrassembler.AssemblySections[startAddress] = instructions
+	avrassembler.RawAssemblySections[startAddress] = instructions
 
-	compiled_assembly := []string{}
+	fileOut := ""
 	// Parse Operands with context of all labels
-	for i := 0; i < len(instructions); i++ {
-		encodingFunc, ok := avrassembler.InstructionParse[instructions[i].Mnemonic]
-		if !ok {
-			fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
-			os.Exit(1)
+	for addr, instructionSection := range avrassembler.RawAssemblySections {
+		compiledAssembly := []string{}
+		for i := 0; i < len(instructionSection); i++ {
+			encodingFunc, ok := avrassembler.InstructionParse[instructions[i].Mnemonic]
+			if !ok {
+				fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+				os.Exit(1)
+			}
+			ops, err := encodingFunc(instructions[i].Operands, instructions[i].Line)
+			if err != nil {
+				fmt.Printf("[E] %s, Found on line %d\n", err, instructions[i].Line)
+				os.Exit(1)
+			}
+			ins, ok := avrassembler.InstructionSet[instructions[i].Mnemonic]
+			if !ok {
+				fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+				os.Exit(1)
+			}
+
+			enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
+
+			le_enc := ((enc[0] >> 8) & 0x00ff) | ((enc[0] << 8) & 0xff00)
+			hex := fmt.Sprintf("%x", le_enc)
+			hex = fmt.Sprintf("%04s", hex)
+			compiledAssembly = append(compiledAssembly, hex)
+			fmt.Printf("%6s %04s\n", instructions[i].Mnemonic, hex)
 		}
-		ops, err := encodingFunc(instructions[i].Operands, instructions[i].Line)
+
+		fileContent, err := avrassembler.ToIntelHex(compiledAssembly, int(addr))
 		if err != nil {
-			fmt.Printf("[E] %s, Found on line %d\n", err, instructions[i].Line)
-			os.Exit(1)
+			println(err.Error())
 		}
-		ins, ok := avrassembler.InstructionSet[instructions[i].Mnemonic]
-		if !ok {
-			fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
-			os.Exit(1)
-		}
-
-		enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
-
-		le_enc := ((enc[0] >> 8) & 0x00ff) | ((enc[0] << 8) & 0xff00)
-		hex := fmt.Sprintf("%x", le_enc)
-		hex = fmt.Sprintf("%04s", hex)
-		compiled_assembly = append(compiled_assembly, hex)
-		fmt.Printf("%6s %04s\n", instructions[i].Mnemonic, hex)
+		fileOut += fileContent
 	}
-
-	file_content, err := avrassembler.ToIntelHex(compiled_assembly)
-	if err != nil {
-		println(err.Error())
-	}
-	println(file_content)
+	println(fileOut)
 	os.Remove(args.OutputFile)
 	f, err := os.Create(args.OutputFile)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	l, err := f.WriteString(file_content)
+	l, err := f.WriteString(fileOut)
 	if err != nil {
 		fmt.Println(err)
 		f.Close()
