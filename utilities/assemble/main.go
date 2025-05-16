@@ -6,9 +6,31 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	avrassembler "avrassembler"
 )
+
+func parseImmidiateUints(num string) (imm uint16, err error) {
+	im, err := strconv.ParseUint(num, 10, 16)
+	if err == nil {
+		return uint16(im), nil
+	} else if num[0:2] == "0b" {
+		imm, err := strconv.ParseUint(num[2:], 2, 16)
+		if err != nil {
+			return 0, err
+		}
+		return uint16(imm), nil
+	} else if num[0:2] == "0x" {
+		imm, err := strconv.ParseUint(num[2:], 16, 16)
+		if err != nil {
+			return 0, err
+		}
+		return uint16(imm), nil
+	} else {
+		return 0, fmt.Errorf(" unable to parse [%s] into uint", num)
+	}
+}
 
 // CmdArgs holds input and output file names
 type cmdArgs struct {
@@ -52,21 +74,33 @@ func main() {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 
+	startAddress := uint16(0x00)
 	instructions := []avrassembler.Instruction{}
-
 	// Collect Instuctions and Labels
 	line := uint16(0)
 	for scanner.Scan() {
 		//fmt.Println(scanner.Text())
-		instruction, label, err := avrassembler.ParseLine(scanner.Text(), line)
+		instruction, meta, err := avrassembler.ParseLine(scanner.Text(), line)
 		if err != nil {
 			fmt.Printf("Error on line %d, %s\n ", line, err)
 			os.Exit(1)
 		}
-		if label != "" {
-			avrassembler.LabelMap[label] = line
+
+		if meta.Operation == "label" {
+			avrassembler.LabelMap[meta.Args] = line
 		}
-		// if white space, comment, or label skip instruction logic
+
+		if meta.Operation == "org" {
+			avrassembler.AssemblySections[startAddress] = instructions
+			instructions = []avrassembler.Instruction{}
+			startAddress, err = parseImmidiateUints(meta.Args)
+			if err != nil {
+				fmt.Printf("Error parsing address %s, %s\n ", meta.Args, err)
+				os.Exit(1)
+			}
+			continue
+		}
+		// if white space, comment, or meta skip instruction logic
 		if instruction.Mnemonic == "" {
 			continue
 		}
@@ -74,6 +108,7 @@ func main() {
 
 		line++
 	}
+	avrassembler.AssemblySections[startAddress] = instructions
 
 	compiled_assembly := []string{}
 	// Parse Operands with context of all labels

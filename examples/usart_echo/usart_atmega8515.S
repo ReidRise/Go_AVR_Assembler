@@ -1,3 +1,5 @@
+.org 0x100
+
 ; Setup stack
 LDI R16, 0x02   ; RAMEND = 0x025F
 OUT 0x3E, R16   ; SPH (Stack Pointer High) = 0x02
@@ -16,7 +18,20 @@ RCALL USART_Init
 BACK:
 COM R16
 OUT 0x18, R16
+PUSH R16
+LDI R16, 0x52
 RCALL USART_Transmit
+LDI R16, 0x45
+RCALL USART_Transmit
+RCALL delay
+LDI R16, 0x49
+RCALL USART_Transmit
+LDI R16, 0x44
+RCALL USART_Transmit
+RCALL delay
+LDI R16, 0x0a
+RCALL USART_Transmit
+POP R16
 RCALL delay
 RJMP BACK
 
