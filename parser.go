@@ -44,9 +44,7 @@ func parseMeta(line string) (meta Meta, err error) {
 		meta.Operation = "db"
 		meta.Args = parts[1]
 	case ".org": // Set starting address for code after it
-		println("WE ARE FARMERS ")
 		meta.Operation = "org"
-		println(parts[1])
 		meta.Args = parts[1]
 	case ".macro": // Setup a macro to be inserted into code
 		meta.Operation = "macro"
@@ -241,6 +239,7 @@ func parseSkipBit(args []string, line_addr int) (ops [2]uint16, err error) {
 func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 
 	label_addr := int(LabelMap[args[0]])
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := label_addr - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -263,6 +262,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 	}
 
 	label_addr := int(LabelMap[args[1]])
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := label_addr - line_addr
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -274,6 +274,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 
 func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
 	label_addr, ok := LabelMap[args[0]]
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	if !ok {
 		return [2]uint16{0, 0}, fmt.Errorf("no label '%s'", args[0])
 	}

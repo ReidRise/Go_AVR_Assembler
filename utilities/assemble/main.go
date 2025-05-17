@@ -87,18 +87,18 @@ func main() {
 		}
 
 		if meta.Operation == "label" {
-			avrassembler.LabelMap[meta.Args] = line
+			avrassembler.LabelMap[meta.Args] = line + (startAddress / 2)
 		}
 
 		if meta.Operation == "org" {
 			avrassembler.RawAssemblySections[startAddress] = instructions
 			instructions = []avrassembler.Instruction{}
 			startAddress, err = parseImmidiateUints(meta.Args)
+			line = 0
 			if err != nil {
 				fmt.Printf("Error parsing address %s, %s\n ", meta.Args, err)
 				os.Exit(1)
 			}
-			continue
 		}
 		// if white space, comment, or meta skip instruction logic
 		if instruction.Mnemonic == "" {
@@ -115,19 +115,19 @@ func main() {
 	for addr, instructionSection := range avrassembler.RawAssemblySections {
 		compiledAssembly := []string{}
 		for i := 0; i < len(instructionSection); i++ {
-			encodingFunc, ok := avrassembler.InstructionParse[instructions[i].Mnemonic]
+			encodingFunc, ok := avrassembler.InstructionParse[instructionSection[i].Mnemonic]
 			if !ok {
-				fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+				fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructionSection[i].Mnemonic, instructionSection[i].Line)
 				os.Exit(1)
 			}
-			ops, err := encodingFunc(instructions[i].Operands, instructions[i].Line)
+			ops, err := encodingFunc(instructionSection[i].Operands, instructionSection[i].Line)
 			if err != nil {
-				fmt.Printf("[E] %s, Found on line %d\n", err, instructions[i].Line)
+				fmt.Printf("[E] %s, Found on line %d\n", err, instructionSection[i].Line)
 				os.Exit(1)
 			}
-			ins, ok := avrassembler.InstructionSet[instructions[i].Mnemonic]
+			ins, ok := avrassembler.InstructionSet[instructionSection[i].Mnemonic]
 			if !ok {
-				fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructions[i].Mnemonic, instructions[i].Line)
+				fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructionSection[i].Mnemonic, instructionSection[i].Line)
 				os.Exit(1)
 			}
 
@@ -137,7 +137,7 @@ func main() {
 			hex := fmt.Sprintf("%x", le_enc)
 			hex = fmt.Sprintf("%04s", hex)
 			compiledAssembly = append(compiledAssembly, hex)
-			fmt.Printf("%6s %04s\n", instructions[i].Mnemonic, hex)
+			fmt.Printf("%6s %04s\n", instructionSection[i].Mnemonic, hex)
 		}
 
 		fileContent, err := avrassembler.ToIntelHex(compiledAssembly, int(addr))
@@ -146,6 +146,7 @@ func main() {
 		}
 		fileOut += fileContent
 	}
+	fileOut += ":00000001FF"
 	println(fileOut)
 	os.Remove(args.OutputFile)
 	f, err := os.Create(args.OutputFile)
