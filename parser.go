@@ -26,6 +26,15 @@ type Meta struct {
 	NewSection bool
 }
 
+func isMacro(macro string) (meta Meta) {
+	_, ok := RawMacroSections[macro]
+	if ok {
+		meta.Operation = "invokeMacro"
+		meta.Args = macro
+	}
+	return meta
+}
+
 func parseLabel(line string) (label string, label_present bool) {
 	label = ""
 	label_arr := strings.Split(line, ":")
@@ -47,6 +56,9 @@ func parseMeta(line string) (meta Meta, err error) {
 		meta.Operation = "org"
 		meta.Args = parts[1]
 	case ".macro": // Setup a macro to be inserted into code
+		if len(parts) == 1 {
+			return meta, fmt.Errorf("no macro name provided")
+		}
 		meta.Operation = "macro"
 		meta.Args = parts[1]
 	case ".endmacro": // End a macro
@@ -56,17 +68,23 @@ func parseMeta(line string) (meta Meta, err error) {
 		if present {
 			meta.Operation = "label"
 			meta.Args = label
+		} else {
+			meta = isMacro(parts[0])
 		}
 	}
 	return meta, nil
 }
 
-func ParseLine(line string, lineNumber uint16) (Instruction, Meta, error) {
+func ParseLine(line string) (Instruction, Meta, error) {
 	// Remove comments and trim whitespace
 	var parts = []string{}
 	clean := strings.Split(line, ";")[0]
 
 	meta, err := parseMeta(clean)
+	if err != nil {
+		fmt.Println("[E] Failed to parse metadata")
+		return Instruction{}, meta, err // empty line
+	}
 
 	if meta.Operation != "" {
 		if meta.Operation == "label" {
@@ -77,11 +95,6 @@ func ParseLine(line string, lineNumber uint16) (Instruction, Meta, error) {
 		}
 	} else {
 		parts = strings.Fields(clean)
-	}
-
-	if err != nil {
-		fmt.Println("[E] Failed to parse metadata")
-		return Instruction{}, meta, err // empty line
 	}
 
 	// Pipe this back or just dup the work?
@@ -104,7 +117,6 @@ func ParseLine(line string, lineNumber uint16) (Instruction, Meta, error) {
 	return Instruction{
 		Mnemonic: mnemonic,
 		Operands: operands,
-		Line:     int(lineNumber),
 	}, meta, nil
 }
 

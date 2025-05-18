@@ -77,20 +77,30 @@ func main() {
 	startAddress := uint16(0x00)
 	instructions := []avrassembler.Instruction{}
 	// Collect Instuctions and Labels
+	inMacroDef := ""
 	line := uint16(0)
 	for scanner.Scan() {
 		//fmt.Println(scanner.Text())
-		instruction, meta, err := avrassembler.ParseLine(scanner.Text(), line)
+		instruction, meta, err := avrassembler.ParseLine(scanner.Text())
 		if err != nil {
 			fmt.Printf("Error on line %d, %s\n ", line, err)
 			os.Exit(1)
 		}
+		instruction.Line = int(line)
 
 		if meta.Operation == "label" {
+			if inMacroDef != "" {
+				fmt.Printf("[E] Labels cannot be created in macros\n")
+				os.Exit(1)
+			}
 			avrassembler.LabelMap[meta.Args] = line + (startAddress / 2)
 		}
 
 		if meta.Operation == "org" {
+			if inMacroDef != "" {
+				fmt.Printf("[E] Cannot define origin inside macros\n")
+				os.Exit(1)
+			}
 			avrassembler.RawAssemblySections[startAddress] = instructions
 			instructions = []avrassembler.Instruction{}
 			startAddress, err = parseImmidiateUints(meta.Args)
@@ -99,15 +109,56 @@ func main() {
 				fmt.Printf("Error parsing address %s, %s\n ", meta.Args, err)
 				os.Exit(1)
 			}
+			if (startAddress % 2) != 0 {
+				fmt.Printf("[W] Address %s is not 16 bit aligned!\n ", meta.Args)
+			}
 		}
+
+		if meta.Operation == "macro" {
+			if inMacroDef != "" {
+				fmt.Printf("[E] Cannot define macro inside another macro\n")
+				os.Exit(1)
+			}
+			inMacroDef = meta.Args
+			avrassembler.RawAssemblySections[startAddress] = instructions
+			instructions = []avrassembler.Instruction{}
+		}
+
+		if meta.Operation == "endmacro" {
+			if inMacroDef == "" {
+				fmt.Printf("[E] No macro to complete\n")
+				os.Exit(1)
+			}
+			avrassembler.RawMacroSections[inMacroDef] = instructions
+			instructions = []avrassembler.Instruction{}
+			inMacroDef = ""
+		}
+
+		if meta.Operation == "invokeMacro" {
+			macroExpansion := avrassembler.RawMacroSections[meta.Args]
+			for _, instr := range macroExpansion {
+				instr.Line = int(startAddress + line)
+				instructions = append(instructions, instr)
+				line++
+			}
+			continue
+		}
+
 		// if white space, comment, or meta skip instruction logic
 		if instruction.Mnemonic == "" {
 			continue
 		}
 		instructions = append(instructions, instruction)
-
-		line++
+		if inMacroDef == "" {
+			line++
+		}
 	}
+
+	if inMacroDef != "" {
+		fmt.Printf("[E] Macro definition was never closed...\n")
+		os.Exit(1)
+	}
+
 	avrassembler.RawAssemblySections[startAddress] = instructions
 
 	fileOut := ""
