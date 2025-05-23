@@ -20,21 +20,87 @@ type Instruction struct {
 	Line     int // for error reporting
 }
 
-func ParseLine(line string, lineNumber uint16) (Instruction, string, error) {
-	// Remove comments and trim whitespace
-	clean := strings.Split(line, ";")[0]
-	label_arr := strings.Split(clean, ":")
-	var label = ""
-	var parts = []string{}
-	label_present := strings.Contains(clean, ":")
+type Meta struct {
+	Operation  string
+	Args       string
+	NewSection bool
+}
+
+func isMacro(macro string) (meta Meta) {
+	_, ok := RawMacroSections[macro]
+	if ok {
+		meta.Operation = "invokeMacro"
+		meta.Args = macro
+	}
+	return meta
+}
+
+func parseLabel(line string) (label string, label_present bool) {
+	label = ""
+	label_arr := strings.Split(line, ":")
+	label_present = strings.Contains(line, ":")
 	if label_present {
 		label = label_arr[0]
-		parts = strings.Fields(label_arr[1])
+	}
+	return label, label_present
+}
+
+func parseMeta(line string) (meta Meta, err error) {
+	meta = Meta{}
+	parts := strings.Split(line, " ")
+	switch parts[0] {
+	case ".db": // Use a offset for each db and then put it at end of code (maybe allow to be placed between orgs?)
+		meta.Operation = "db"
+		meta.Args = parts[1]
+	case ".org": // Set starting address for code after it
+		meta.Operation = "org"
+		meta.Args = parts[1]
+	case ".macro": // Setup a macro to be inserted into code
+		if len(parts) == 1 {
+			return meta, fmt.Errorf("no macro name provided")
+		}
+		meta.Operation = "macro"
+		meta.Args = parts[1]
+	case ".endmacro": // End a macro
+		meta.Operation = "endmacro"
+	default:
+		label, present := parseLabel(line)
+		if present {
+			meta.Operation = "label"
+			meta.Args = label
+		} else {
+			meta = isMacro(parts[0])
+		}
+	}
+	return meta, nil
+}
+
+func ParseLine(line string) (Instruction, Meta, error) {
+	// Remove comments and trim whitespace
+	var parts = []string{}
+	clean := strings.Split(line, ";")[0]
+
+	meta, err := parseMeta(clean)
+	if err != nil {
+		fmt.Println("[E] Failed to parse metadata")
+		return Instruction{}, meta, err // empty line
+	}
+
+	if meta.Operation != "" {
+		if meta.Operation == "label" {
+			parsed := strings.Split(clean, ":")
+			parts = strings.Fields(parsed[1])
+		} else {
+			return Instruction{}, meta, nil
+		}
 	} else {
 		parts = strings.Fields(clean)
 	}
+
+	// Pipe this back or just dup the work?
+	// One of them is less bad
 	if len(parts) == 0 {
-		return Instruction{}, label, nil // empty line
+		return Instruction{}, meta, nil // empty line
 	}
 
 	mnemonic := strings.ToUpper(parts[0])
@@ -51,8 +117,7 @@ func ParseLine(line string, lineNumber uint16) (Instruction, string, error) {
 	return Instruction{
 		Mnemonic: mnemonic,
 		Operands: operands,
-		Line:     int(lineNumber),
-	}, label, nil
+	}, meta, nil
 }
 
 type ParserFunc func(args []string, line_addr int) ([2]uint16, error)
@@ -186,6 +251,7 @@ func parseSkipBit(args []string, line_addr int) (ops [2]uint16, err error) {
 func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 
 	label_addr := int(LabelMap[args[0]])
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := label_addr - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -208,6 +274,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 	}
 
 	label_addr := int(LabelMap[args[1]])
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := label_addr - line_addr
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -219,6 +286,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 
 func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
 	label_addr, ok := LabelMap[args[0]]
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	if !ok {
 		return [2]uint16{0, 0}, fmt.Errorf("no label '%s'", args[0])
 	}

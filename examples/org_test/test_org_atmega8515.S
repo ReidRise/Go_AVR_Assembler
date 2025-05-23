@@ -58,6 +58,7 @@ RJMP USART_Transmit
 OUT 0x0C, r16
 RET
 
+.org 0x100
 ; Delay Function
 delay: LDI r22, 1
 la: LDI r23, 1
