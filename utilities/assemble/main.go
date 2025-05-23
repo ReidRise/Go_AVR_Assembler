@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -114,6 +115,26 @@ func main() {
 			}
 		}
 
+		if meta.Operation == "db" {
+			if inMacroDef != "" {
+				fmt.Printf("[E] Cannot define data blob in macro\n")
+				os.Exit(1)
+			}
+			avrassembler.RawAssemblySections[startAddress] = instructions
+			instructions = []avrassembler.Instruction{}
+			startAddress = startAddress + (line * 2)
+			line = 0
+
+			// Implementing strings only, more data later
+			data := []byte(meta.Args)
+			entry := avrassembler.DataBlob{
+				Data:    data,
+				Address: startAddress + (line * 2),
+			}
+			avrassembler.DbSections = append(avrassembler.DbSections, entry)
+			startAddress += uint16((len(data) % 2) + len(data))
+		}
+
 		if meta.Operation == "macro" {
 			if inMacroDef != "" {
 				fmt.Printf("[E] Cannot define macro inside another macro\n")
@@ -192,6 +213,14 @@ func main() {
 		}
 
 		fileContent, err := avrassembler.ToIntelHex(compiledAssembly, int(addr))
+		if err != nil {
+			println(err.Error())
+		}
+		fileOut += fileContent
+	}
+	for _, dataBlob := range avrassembler.DbSections {
+		dataBlobString := []string{hex.EncodeToString(dataBlob.Data)}
+		fileContent, err := avrassembler.ToIntelHex(dataBlobString, int(dataBlob.Address))
 		if err != nil {
 			println(err.Error())
 		}

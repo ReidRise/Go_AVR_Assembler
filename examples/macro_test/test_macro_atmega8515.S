@@ -47,3 +47,7 @@ BRNE l0
 DEC r22
 BREQ la
 RET
+
+.org 0x400
+mystring:
+.db BEANS
