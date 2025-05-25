@@ -48,6 +48,16 @@ DEC r22
 BREQ la
 RET
 
+ReadLoop:
+    PUSH r16
+    LPM r16, Z+         ; Load next byte from flash to r16
+    TST r16             ; Check for null terminator
+    BREQ Done
+    RCALL SendChar      ; e.g., send to UART
+    RJMP ReadLoop
+    RET
+
 .org 0x400
 mystring:
 .db BEANS
+NOP

@@ -1,6 +1,7 @@
 package avrassembler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -35,6 +36,29 @@ func isMacro(macro string) (meta Meta) {
 	return meta
 }
 
+func ParseQuotedString(input string) (string, error) {
+	input = strings.TrimSpace(input)
+	if len(input) < 2 {
+		return "", errors.New("input too short to be quoted")
+	}
+
+	start := input[0]
+	end := input[len(input)-1]
+
+	println(input)
+
+	if (start != '"' && start != '\'') || start != end {
+		return "", errors.New("string must be enclosed in matching single or double quotes")
+	}
+
+	unquoted, err := strconv.Unquote(input)
+	if err != nil {
+		return "", err
+	}
+
+	return unquoted, nil
+}
+
 func parseLabel(line string) (label string, label_present bool) {
 	label = ""
 	label_arr := strings.Split(line, ":")
@@ -45,13 +69,31 @@ func parseLabel(line string) (label string, label_present bool) {
 	return label, label_present
 }
 
+func parseData(dataIn string) (dataOut string, err error) {
+	data, err := ParseQuotedString(dataIn)
+	if err == nil {
+		return data, nil
+	}
+	println(err)
+	num, err := parseImmidiateUints(dataIn)
+	if err == nil {
+		data = strconv.FormatUint(uint64(num), 16)
+		return data, nil
+	}
+	return "", fmt.Errorf("unable to parse DataBlob")
+}
+
 func parseMeta(line string) (meta Meta, err error) {
 	meta = Meta{}
 	parts := strings.Split(line, " ")
+	println(line)
 	switch parts[0] {
 	case ".db": // Use a offset for each db and then put it at end of code (maybe allow to be placed between orgs?)
 		meta.Operation = "db"
-		meta.Args = parts[1]
+		meta.Args, err = parseData(strings.Join(parts[1:], " "))
+		if err != nil {
+			return meta, err
+		}
 	case ".org": // Set starting address for code after it
 		meta.Operation = "org"
 		meta.Args = parts[1]
@@ -149,6 +191,7 @@ var InstructionParse = map[string]ParserFunc{
 	"LPM":   parseLPM,
 	"ELPM":  parseELPM,
 	"NOP":   parseConst,
+	"TST":   parseTST,
 }
 
 // Helper Functions
@@ -425,4 +468,18 @@ func parseELPM(args []string, line_addr int) (ops [2]uint16, err error) {
 	ops[1] |= 0b010
 
 	return
+}
+
+func parseTST(args []string, line_addr int) (ops [2]uint16, err error) {
+
+	ops[0], err = parseRegister5bits(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+
+	ops[1], err = parseRegister5bits(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	return ops, nil
 }
