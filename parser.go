@@ -268,6 +268,14 @@ func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, e
 
 // Arg Parser
 
+func getLabelAddress(label string) (addr uint16, err error) {
+	addr, ok := LabelMap[label]
+	if !ok {
+		return 0, fmt.Errorf("label [%s] not found", label)
+	}
+	return addr, nil
+}
+
 func parseConst(args []string, line_addr int) (ops [2]uint16, err error) {
 	return [2]uint16{0, 0}, nil
 }
@@ -292,10 +300,13 @@ func parseSkipBit(args []string, line_addr int) (ops [2]uint16, err error) {
 }
 
 func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err error) {
+	label_addr, err := getLabelAddress(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
 
-	label_addr := int(LabelMap[args[0]])
 	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
-	rel_addr := label_addr - line_addr - 1
+	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
 	}
@@ -316,9 +327,13 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, fmt.Errorf("uint value [%d] is not a valid flag [0-7]", ops[0])
 	}
 
-	label_addr := int(LabelMap[args[1]])
+	label_addr, err := getLabelAddress(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+
 	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
-	rel_addr := label_addr - line_addr
+	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
 	}
@@ -328,12 +343,12 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 }
 
 func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
-	label_addr, ok := LabelMap[args[0]]
-	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
-	if !ok {
-		return [2]uint16{0, 0}, fmt.Errorf("no label '%s'", args[0])
+	label_addr, err := getLabelAddress(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
 	}
 
+	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
