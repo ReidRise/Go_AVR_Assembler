@@ -88,81 +88,83 @@ func main() {
 			os.Exit(1)
 		}
 		instruction.Line = int(line)
+		for _, m := range meta {
+			if m.Operation == "label" {
+				if inMacroDef != "" {
+					fmt.Printf("[E] Labels cannot be created in macros\n")
+					os.Exit(1)
+				}
+				fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
+				avrassembler.LabelMap[m.Args] = line + (startAddress / 2)
+			}
 
-		if meta.Operation == "label" {
-			if inMacroDef != "" {
-				fmt.Printf("[E] Labels cannot be created in macros\n")
-				os.Exit(1)
+			if m.Operation == "org" {
+				if inMacroDef != "" {
+					fmt.Printf("[E] Cannot define origin inside macros\n")
+					os.Exit(1)
+				}
+				avrassembler.RawAssemblySections[startAddress] = instructions
+				instructions = []avrassembler.Instruction{}
+				startAddress, err = parseImmidiateUints(m.Args)
+				line = 0
+				if err != nil {
+					fmt.Printf("Error parsing address %s, %s\n ", m.Args, err)
+					os.Exit(1)
+				}
+				if (startAddress % 2) != 0 {
+					fmt.Printf("[W] Address %s is not 16 bit aligned!\n ", m.Args)
+				}
 			}
-			avrassembler.LabelMap[meta.Args] = line + (startAddress / 2)
-		}
 
-		if meta.Operation == "org" {
-			if inMacroDef != "" {
-				fmt.Printf("[E] Cannot define origin inside macros\n")
-				os.Exit(1)
-			}
-			avrassembler.RawAssemblySections[startAddress] = instructions
-			instructions = []avrassembler.Instruction{}
-			startAddress, err = parseImmidiateUints(meta.Args)
-			line = 0
-			if err != nil {
-				fmt.Printf("Error parsing address %s, %s\n ", meta.Args, err)
-				os.Exit(1)
-			}
-			if (startAddress % 2) != 0 {
-				fmt.Printf("[W] Address %s is not 16 bit aligned!\n ", meta.Args)
-			}
-		}
+			if m.Operation == "db" {
+				if inMacroDef != "" {
+					fmt.Printf("[E] Cannot define data blob in macro\n")
+					os.Exit(1)
+				}
+				avrassembler.RawAssemblySections[startAddress] = instructions
+				instructions = []avrassembler.Instruction{}
+				startAddress = startAddress + (line * 2)
+				line = 0
 
-		if meta.Operation == "db" {
-			if inMacroDef != "" {
-				fmt.Printf("[E] Cannot define data blob in macro\n")
-				os.Exit(1)
+				// Implementing strings only, more data later
+				data := []byte(m.Args)
+				entry := avrassembler.DataBlob{
+					Data:    data,
+					Address: startAddress + (line * 2),
+				}
+				avrassembler.DbSections = append(avrassembler.DbSections, entry)
+				startAddress += uint16((len(data) % 2) + len(data))
 			}
-			avrassembler.RawAssemblySections[startAddress] = instructions
-			instructions = []avrassembler.Instruction{}
-			startAddress = startAddress + (line * 2)
-			line = 0
 
-			// Implementing strings only, more data later
-			data := []byte(meta.Args)
-			entry := avrassembler.DataBlob{
-				Data:    data,
-				Address: startAddress + (line * 2),
+			if m.Operation == "macro" {
+				if inMacroDef != "" {
+					fmt.Printf("[E] Cannot define macro inside another macro\n")
+					os.Exit(1)
+				}
+				inMacroDef = m.Args
+				avrassembler.RawAssemblySections[startAddress] = instructions
+				instructions = []avrassembler.Instruction{}
 			}
-			avrassembler.DbSections = append(avrassembler.DbSections, entry)
-			startAddress += uint16((len(data) % 2) + len(data))
-		}
 
-		if meta.Operation == "macro" {
-			if inMacroDef != "" {
-				fmt.Printf("[E] Cannot define macro inside another macro\n")
-				os.Exit(1)
+			if m.Operation == "endmacro" {
+				if inMacroDef == "" {
+					fmt.Printf("[E] No macro to complete\n")
+					os.Exit(1)
+				}
+				avrassembler.RawMacroSections[inMacroDef] = instructions
+				instructions = []avrassembler.Instruction{}
+				inMacroDef = ""
 			}
-			inMacroDef = meta.Args
-			avrassembler.RawAssemblySections[startAddress] = instructions
-			instructions = []avrassembler.Instruction{}
-		}
 
-		if meta.Operation == "endmacro" {
-			if inMacroDef == "" {
-				fmt.Printf("[E] No macro to complete\n")
-				os.Exit(1)
+			if m.Operation == "invokeMacro" {
+				macroExpansion := avrassembler.RawMacroSections[m.Args]
+				for _, instr := range macroExpansion {
+					instr.Line = int(startAddress + line)
+					instructions = append(instructions, instr)
+					line++
+				}
+				continue
 			}
-			avrassembler.RawMacroSections[inMacroDef] = instructions
-			instructions = []avrassembler.Instruction{}
-			inMacroDef = ""
-		}
-
-		if meta.Operation == "invokeMacro" {
-			macroExpansion := avrassembler.RawMacroSections[meta.Args]
-			for _, instr := range macroExpansion {
-				instr.Line = int(startAddress + line)
-				instructions = append(instructions, instr)
-				line++
-			}
-			continue
 		}
 
 		// if white space, comment, or meta skip instruction logic
@@ -192,11 +194,17 @@ func main() {
 				fmt.Printf("[E] Parsing function not found for %s not found on line %d\n", instructionSection[i].Mnemonic, instructionSection[i].Line)
 				os.Exit(1)
 			}
-			ops, err := encodingFunc(instructionSection[i].Operands, instructionSection[i].Line)
+			operands := []string{}
+			for _, o := range instructionSection[i].Operands {
+				operands = append(operands, o.Value)
+			}
+
+			ops, err := encodingFunc(operands, instructionSection[i].Line)
 			if err != nil {
 				fmt.Printf("[E] %s, Found on line %d\n", err, instructionSection[i].Line)
 				os.Exit(1)
 			}
+
 			ins, ok := avrassembler.InstructionSet[instructionSection[i].Mnemonic]
 			if !ok {
 				fmt.Printf("[E] Encoding function not found for %s on line %d\n", instructionSection[i].Mnemonic, instructionSection[i].Line)
