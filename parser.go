@@ -1,10 +1,10 @@
 package avrassembler
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 type PointerRegister byte
@@ -17,7 +17,7 @@ const (
 
 type Instruction struct {
 	Mnemonic string
-	Operands []string
+	Operands []Token
 	Line     int // for error reporting
 }
 
@@ -27,133 +27,207 @@ type Meta struct {
 	NewSection bool
 }
 
-func isMacro(macro string) (meta Meta) {
+func isMacro(macro string) (meta Meta, exists bool) {
 	_, ok := RawMacroSections[macro]
 	if ok {
 		meta.Operation = "invokeMacro"
 		meta.Args = macro
 	}
-	return meta
+	return meta, ok
 }
 
-func ParseQuotedString(input string) (string, error) {
-	input = strings.TrimSpace(input)
-	if len(input) < 2 {
-		return "", errors.New("input too short to be quoted")
-	}
-
-	start := input[0]
-	end := input[len(input)-1]
-
-	println(input)
-
-	if (start != '"' && start != '\'') || start != end {
-		return "", errors.New("string must be enclosed in matching single or double quotes")
-	}
-
-	unquoted, err := strconv.Unquote(input)
-	if err != nil {
-		return "", err
-	}
-
-	return unquoted, nil
-}
-
-func parseLabel(line string) (label string, label_present bool) {
-	label = ""
-	label_arr := strings.Split(line, ":")
-	label_present = strings.Contains(line, ":")
-	if label_present {
-		label = label_arr[0]
-	}
-	return label, label_present
-}
-
-func parseData(dataIn string) (dataOut string, err error) {
-	data, err := ParseQuotedString(dataIn)
-	if err == nil {
-		return data, nil
-	}
-	println(err)
-	num, err := parseImmidiateUints(dataIn)
-	if err == nil {
-		data = strconv.FormatUint(uint64(num), 16)
-		return data, nil
-	}
-	return "", fmt.Errorf("unable to parse DataBlob")
-}
-
-func parseMeta(line string) (meta Meta, err error) {
-	meta = Meta{}
-	parts := strings.Split(line, " ")
-	println(line)
-	switch parts[0] {
-	case ".db": // Use a offset for each db and then put it at end of code (maybe allow to be placed between orgs?)
-		meta.Operation = "db"
-		meta.Args, err = parseData(strings.Join(parts[1:], " "))
-		if err != nil {
-			return meta, err
-		}
-	case ".org": // Set starting address for code after it
-		meta.Operation = "org"
-		meta.Args = parts[1]
-	case ".macro": // Setup a macro to be inserted into code
-		if len(parts) == 1 {
-			return meta, fmt.Errorf("no macro name provided")
-		}
-		meta.Operation = "macro"
-		meta.Args = parts[1]
-	case ".endmacro": // End a macro
-		meta.Operation = "endmacro"
-	default:
-		label, present := parseLabel(line)
-		if present {
-			meta.Operation = "label"
-			meta.Args = label
-		} else {
-			meta = isMacro(parts[0])
+func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
+	for i := 0; i < len(tokens); i++ {
+		switch tokens[i].Type {
+		case "Label":
+			parsedTokens++
+			meta = append(meta, Meta{})
+			meta[i].Operation = "label"
+			meta[i].Args = tokens[i].Value[:len(tokens[i].Value)-1]
+		case "Operand":
+			macro, exists := isMacro(tokens[i].Value)
+			if exists {
+				parsedTokens++
+				meta = append(meta, macro)
+			}
+		case "MetaTag":
+			parsedTokens++
+			meta = append(meta, Meta{})
+			switch tokens[i].Value {
+			case ".db": // Use a offset for each db and then put it at end of code (maybe allow to be placed between orgs?)
+				parsedTokens++
+				meta[i].Operation = "db"
+				if len(tokens) < i+1 {
+					return meta, 0, fmt.Errorf("no data provided")
+				}
+				meta[i].Args = tokens[i+1].Value
+				i++
+			case ".org": // Set starting address for code after it
+				parsedTokens++
+				meta[i].Operation = "org"
+				if len(tokens) < i+1 {
+					return meta, 0, fmt.Errorf("no origin provided")
+				}
+				if tokens[i+1].DataType != "Integer" {
+					return meta, 0, fmt.Errorf("origin provided is not integer")
+				}
+				meta[i].Args = tokens[i+1].Value
+				i++
+			case ".macro": // Setup a macro to be inserted into code
+				parsedTokens++
+				if len(tokens) <= i+1 {
+					return meta, 0, fmt.Errorf("no macro name provided")
+				}
+				meta[i].Operation = "macro"
+				meta[i].Args = tokens[i+1].Value
+				i++
+			case ".endmacro": // End a macro
+				meta[i].Operation = "endmacro"
+			}
 		}
 	}
-	return meta, nil
+	return meta, parsedTokens, nil
 }
 
-func ParseLine(line string) (Instruction, Meta, error) {
+type Token struct {
+	Type     string
+	Value    string
+	DataType string // Add data type
+	Line     int
+	Column   int
+}
+
+func TokenizeLine(code string) (tokens []Token, err error) {
+	tokens = []Token{}
+	line := 0
+	for i := 0; i < len(code); i++ {
+		r := rune(code[i])
+		if unicode.IsSpace(r) {
+			continue
+		}
+
+		if r == ';' {
+			// Comment detected
+			// Hacky workaround
+			i = len(code)
+		}
+
+		if r == '.' && len(tokens) == 0 {
+			buf := ""
+			for ; i < len(code) && !unicode.IsSpace(rune(code[i])); i++ {
+				buf += string(code[i])
+			}
+			tokens = append(tokens, Token{Type: "MetaTag", Value: buf, DataType: "String", Line: line, Column: i})
+		}
+
+		if unicode.IsLetter(r) {
+			buf := ""
+			for ; i < len(code) && (!unicode.IsSpace(rune(code[i]))) && (code[i] != ','); i++ {
+				buf += string(code[i])
+			}
+			if buf[len(buf)-1] != ':' {
+				tokens = append(tokens, Token{Type: "Operand", Value: buf, DataType: "String", Line: line, Column: i})
+			} else {
+				tokens = append(tokens, Token{Type: "Label", Value: buf, DataType: "String", Line: line, Column: i})
+			}
+		}
+
+		if r == '"' {
+			// Handle string literals
+			buf := "\""
+			i++
+			for ; i < len(code) && code[i] != '"'; i++ {
+				buf += string(code[i])
+			}
+
+			if code[len(code)-1] != '"' {
+				return tokens, fmt.Errorf("found string without matching \" on line %d col %d", line, i)
+			}
+
+			if i < len(code) && code[i] == '"' {
+				tokens = append(tokens, Token{Type: "StringLiteral", Value: buf, DataType: "String", Line: line, Column: i})
+				i++ // Advance past the closing quote
+			}
+		}
+
+		if r == '0' {
+			buf := ""
+			tokenType := ""
+			if len(code) <= i+1 && unicode.IsLetter(rune(code[i+1])) {
+				return tokens, fmt.Errorf("incomplete number on line %d col %d", line, i)
+			} else if code[i+1] == 'x' {
+				tokenType = "Hexidecimal"
+				i = i + 2
+				buf += "0x"
+				for ; i < len(code); i++ {
+					if unicode.IsSpace(rune(code[i])) || rune(code[i]) == ',' {
+						break
+					}
+					if !unicode.IsDigit(rune(code[i])) && !strings.ContainsAny(strings.ToUpper(string(code[i])), "A | B | C | D | E | F") {
+						return tokens, fmt.Errorf("non-hex char [%s] on line %d col %d", string(code[i]), line, i)
+					}
+					buf += string(code[i])
+				}
+			} else if code[i+1] == 'b' {
+				tokenType = "Binary"
+				i = i + 2
+				buf += "0b"
+				for ; i < len(code) && rune(code[i]) != ','; i++ {
+					if unicode.IsSpace(rune(code[i])) {
+						break
+					}
+					if !strings.ContainsAny(strings.ToUpper(string(code[i])), "1 | 0") {
+						return tokens, fmt.Errorf("non-binary char on line %d col %d", line, i)
+					}
+					buf += string(code[i])
+				}
+			} else {
+				tokenType = "Decimal"
+				buf := ""
+				for ; i < len(code) && unicode.IsDigit(rune(code[i])); i++ {
+					buf += string(code[i])
+				}
+			}
+			tokens = append(tokens, Token{Type: tokenType, Value: buf, DataType: "Integer", Line: line, Column: i})
+
+		} else if unicode.IsDigit(rune(r)) {
+			// Integer Detection:  Very basic - needs refinement
+			buf := ""
+			for ; i < len(code) && unicode.IsDigit(rune(code[i])); i++ {
+				buf += string(code[i])
+			}
+			tokens = append(tokens, Token{Type: "Decimal", Value: buf, DataType: "Integer", Line: line, Column: i})
+		}
+	}
+	return tokens, nil
+}
+
+func ParseLine(line string) (Instruction, []Meta, error) {
 	// Remove comments and trim whitespace
-	var parts = []string{}
-	clean := strings.Split(line, ";")[0]
-
-	meta, err := parseMeta(clean)
+	tokens, err := TokenizeLine(line)
 	if err != nil {
-		fmt.Println("[E] Failed to parse metadata")
-		return Instruction{}, meta, err // empty line
+		return Instruction{}, []Meta{}, err
+	}
+	if len(tokens) == 0 {
+		return Instruction{}, []Meta{}, nil
 	}
 
-	if meta.Operation != "" {
-		if meta.Operation == "label" {
-			parsed := strings.Split(clean, ":")
-			parts = strings.Fields(parsed[1])
-		} else {
-			return Instruction{}, meta, nil
-		}
-	} else {
-		parts = strings.Fields(clean)
+	meta, parsedTokens, err := parseMeta(tokens)
+	if err != nil {
+		return Instruction{}, []Meta{}, err
 	}
 
+	instructionTokens := tokens[parsedTokens:]
 	// Pipe this back or just dup the work?
 	// One of them is less bad
-	if len(parts) == 0 {
+	if len(instructionTokens) == 0 {
 		return Instruction{}, meta, nil // empty line
 	}
 
-	mnemonic := strings.ToUpper(parts[0])
-	operands := []string{}
-	if len(parts) > 1 {
-		// Join everything after the mnemonic, split by ','
-		ops := strings.Join(parts[1:], " ")
-		operands = strings.Split(ops, ",")
-		for i := range operands {
-			operands[i] = strings.TrimSpace(operands[i])
-		}
+	mnemonic := strings.ToUpper(instructionTokens[0].Value)
+	operands := []Token{}
+	if len(instructionTokens) > 1 {
+		operands = instructionTokens[1:]
 	}
 
 	return Instruction{
@@ -196,6 +270,30 @@ var InstructionParse = map[string]ParserFunc{
 
 // Helper Functions
 
+func parsePointerRegisters(reg_str string) (reg_uint uint16, ok bool, err error) {
+	reg_parts := strings.Split(reg_str, "(")
+	reg_letter := reg_parts[0]
+	switch strings.ToUpper(reg_letter) {
+	case "X":
+		reg_uint = uint16(26)
+	case "Y":
+		reg_uint = uint16(28)
+	case "Z":
+		reg_uint = uint16(30)
+	default:
+		return 0, ok, nil
+	}
+	if len(reg_parts) > 1 {
+		if reg_parts[1] == "HIGH)" {
+			reg_uint += 1
+		} else if reg_parts[1] == "LOW)" {
+		} else {
+			return 0, false, fmt.Errorf("unknown suffix (%s", reg_parts[1])
+		}
+	}
+	return reg_uint, true, nil
+}
+
 func parseImmidiateUints(num string) (imm uint16, err error) {
 	im, err := strconv.ParseUint(num, 10, 16)
 	if err == nil {
@@ -213,11 +311,33 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 		}
 		return uint16(imm), nil
 	} else {
+		labelParsed := strings.Split(num, "(")
+		imm, err := getLabelAddress(labelParsed[0])
+		if err != nil {
+			return 0, err
+		} else {
+
+			if len(labelParsed) > 1 {
+				if labelParsed[1] == "HIGH)" {
+					imm &= 0xff00
+				} else if labelParsed[1] == "LOW)" {
+					imm &= 0x00ff
+				} else {
+					return 0, fmt.Errorf("unknown suffix (%s", labelParsed[1])
+				}
+			}
+		}
 		return 0, fmt.Errorf(" unable to parse [%s] into uint", num)
 	}
 }
 
 func parseRegister5bits(reg_str string) (reg_uint uint16, err error) {
+	reg_uint, ok, err := parsePointerRegisters(reg_str)
+	if err != nil {
+		return 0, err
+	} else if ok {
+		return uint16(reg_uint), nil
+	}
 	if strings.ToUpper(reg_str[0:1]) != "R" {
 		return 0, fmt.Errorf(" argument [%s] is not regiter rXX", reg_str)
 	}

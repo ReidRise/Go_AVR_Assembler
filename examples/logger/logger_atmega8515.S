@@ -90,7 +90,7 @@ Done:
 
 .org 0x400
 mystring:
-.db "THIS IS AN EXAMPLE LOG\n\n"
+.db "THIS IS AN EXAMPLE LOG\n\n; AND LOOK A SEMI-Colon"
 NOP
 
 .org 0x500
