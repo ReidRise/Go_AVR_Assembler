@@ -79,15 +79,19 @@ func main() {
 	instructions := []avrassembler.Instruction{}
 	// Collect Instuctions and Labels
 	inMacroDef := ""
-	line := uint16(0)
+	// Line in file
+	codeLine := uint16(0)
+	// Line in raw assembly section
+	chunkLine := uint16(0)
 	for scanner.Scan() {
-		//fmt.Println(scanner.Text())
+		codeLine++
 		instruction, meta, err := avrassembler.ParseLine(scanner.Text())
 		if err != nil {
-			fmt.Printf("Error on line %d, %s\n ", line, err)
+			fmt.Printf("Error on line %d, %s\n ", chunkLine, err)
 			os.Exit(1)
 		}
-		instruction.Line = int(line)
+		instruction.Address = int(chunkLine)
+		instruction.Line = int(codeLine)
 		for _, m := range meta {
 			if m.Operation == "label" {
 				if inMacroDef != "" {
@@ -95,7 +99,7 @@ func main() {
 					os.Exit(1)
 				}
 				//fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
-				avrassembler.LabelMap[m.Args] = line + (startAddress / 2)
+				avrassembler.LabelMap[m.Args] = chunkLine + (startAddress / 2)
 			}
 
 			if m.Operation == "org" {
@@ -106,7 +110,7 @@ func main() {
 				avrassembler.RawAssemblySections[startAddress] = instructions
 				instructions = []avrassembler.Instruction{}
 				startAddress, err = parseImmidiateUints(m.Args)
-				line = 0
+				chunkLine = 0
 				if err != nil {
 					fmt.Printf("Error parsing address %s, %s\n ", m.Args, err)
 					os.Exit(1)
@@ -123,14 +127,14 @@ func main() {
 				}
 				avrassembler.RawAssemblySections[startAddress] = instructions
 				instructions = []avrassembler.Instruction{}
-				startAddress = startAddress + (line * 2)
-				line = 0
+				startAddress = startAddress + (chunkLine * 2)
+				chunkLine = 0
 
 				// Implementing strings only, more data later
 				data := []byte(m.Args)
 				entry := avrassembler.DataBlob{
 					Data:    data,
-					Address: startAddress + (line * 2),
+					Address: startAddress + (chunkLine * 2),
 				}
 				avrassembler.DbSections = append(avrassembler.DbSections, entry)
 				startAddress += uint16((len(data) % 2) + len(data))
@@ -156,12 +160,22 @@ func main() {
 				inMacroDef = ""
 			}
 
+			if m.Operation == "import" {
+				if inMacroDef != "" {
+					fmt.Printf("[E] Cannot import inside macro definition\n")
+					os.Exit(1)
+				}
+				inMacroDef = m.Args
+				avrassembler.RawAssemblySections[startAddress] = instructions
+				instructions = []avrassembler.Instruction{}
+			}
+
 			if m.Operation == "invokeMacro" {
 				macroExpansion := avrassembler.RawMacroSections[m.Args]
 				for _, instr := range macroExpansion {
-					instr.Line = int(startAddress + line)
+					instr.Address = int(startAddress + chunkLine)
 					instructions = append(instructions, instr)
-					line++
+					chunkLine++
 				}
 				continue
 			}
@@ -173,7 +187,7 @@ func main() {
 		}
 		instructions = append(instructions, instruction)
 		if inMacroDef == "" {
-			line++
+			chunkLine++
 		}
 	}
 
@@ -199,7 +213,7 @@ func main() {
 				operands = append(operands, o.Value)
 			}
 
-			ops, err := encodingFunc(operands, instructionSection[i].Line)
+			ops, err := encodingFunc(operands, instructionSection[i].Address)
 			if err != nil {
 				fmt.Printf("[E] %s, Found on line %d\n", err, instructionSection[i].Line)
 				os.Exit(1)

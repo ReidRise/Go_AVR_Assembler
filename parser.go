@@ -18,7 +18,8 @@ const (
 type Instruction struct {
 	Mnemonic string
 	Operands []Token
-	Line     int // for error reporting
+	Address  int // Tracking jumps and branches
+	Line     int // For error reporting
 }
 
 type Meta struct {
@@ -83,6 +84,14 @@ func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
 				i++
 			case ".endmacro": // End a macro
 				meta[i].Operation = "endmacro"
+			case ".import":
+				parsedTokens++
+				if len(tokens) <= i+1 {
+					return meta, 0, fmt.Errorf("no macro name provided")
+				}
+				meta[i].Operation = "import"
+				meta[i].Args = tokens[i+1].Value
+				i++
 			}
 		}
 	}
