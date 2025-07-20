@@ -3,9 +3,10 @@ package avrassembler
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
 )
 
-func ToIntelHex(compiledAssembly []string, startingAddress int) (string, error) {
+func toIntelHex(compiledAssembly []string, startingAddress int) (string, error) {
 	intel_hex := ""
 	intel_header := ""
 	intel_line := ""
@@ -45,4 +46,71 @@ func intelHexChecksum(line string) (res string, err error) {
 	checksum = checksum ^ 0xff
 	checksum = (checksum + 1) & 0xff
 	return fmt.Sprintf("%02x", checksum), nil
+}
+
+func WriteToFile(fn string) (err error) {
+	fileOut := ""
+	// Parse Operands with context of all labels
+	for addr, instructionSection := range RawAssemblySections {
+		compiledAssembly := []string{}
+		for i := 0; i < len(instructionSection); i++ {
+			encodingFunc, ok := InstructionParse[instructionSection[i].Mnemonic]
+			if !ok {
+				return fmt.Errorf("[E] parsing function not found for %s not found on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
+			}
+			operands := []string{}
+			for _, o := range instructionSection[i].Operands {
+				operands = append(operands, o.Value)
+			}
+
+			ops, err := encodingFunc(operands, instructionSection[i].Address)
+			if err != nil {
+				return fmt.Errorf("[E] %s, Found on line %d", err, instructionSection[i].Line)
+			}
+
+			ins, ok := InstructionSet[instructionSection[i].Mnemonic]
+			if !ok {
+				return fmt.Errorf("[E] Encoding function not found for %s on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
+			}
+
+			enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
+
+			le_enc := ((enc[0] >> 8) & 0x00ff) | ((enc[0] << 8) & 0xff00)
+			hex := fmt.Sprintf("%x", le_enc)
+			hex = fmt.Sprintf("%04s", hex)
+			compiledAssembly = append(compiledAssembly, hex)
+			fmt.Printf("%6s %04s\n", instructionSection[i].Mnemonic, hex)
+		}
+
+		fileContent, err := toIntelHex(compiledAssembly, int(addr))
+		if err != nil {
+			return err
+		}
+		fileOut += fileContent
+	}
+	for _, dataBlob := range DbSections {
+		dataBlobString := []string{hex.EncodeToString(dataBlob.Data)}
+		fileContent, err := toIntelHex(dataBlobString, int(dataBlob.Address))
+		if err != nil {
+			return err
+		}
+		fileOut += fileContent
+	}
+	fileOut += ":00000001FF"
+	println(fileOut)
+	os.Remove(fn)
+	f, err := os.Create(fn)
+	if err != nil {
+		return err
+	}
+	l, err := f.WriteString(fileOut)
+	if err != nil {
+		return err
+	}
+	fmt.Println(l, "bytes written successfully")
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -1,7 +1,10 @@
 package avrassembler
 
 import (
+	"bufio"
 	"fmt"
+	"log"
+	"os"
 	"strconv"
 	"strings"
 	"unicode"
@@ -35,6 +38,131 @@ func isMacro(macro string) (meta Meta, exists bool) {
 		meta.Args = macro
 	}
 	return meta, ok
+}
+
+func ParseFile(fn string) (err error) {
+	file, err := os.Open(fn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+
+	startAddress := uint16(0x00)
+	instructions := []Instruction{}
+	// Collect Instuctions and Labels
+	inMacroDef := ""
+	// Line in file
+	codeLine := uint16(0)
+	// Line in raw assembly section
+	chunkLine := uint16(0)
+	for scanner.Scan() {
+		codeLine++
+		instruction, meta, err := parseLine(scanner.Text())
+		if err != nil {
+			return fmt.Errorf("[E] error on line %d, %s ", chunkLine, err)
+		}
+		instruction.Address = int(chunkLine)
+		instruction.Line = int(codeLine)
+		for _, m := range meta {
+			if m.Operation == "label" {
+				if inMacroDef != "" {
+					return fmt.Errorf("[E] labels cannot be created in macros")
+				}
+				//fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
+				LabelMap[m.Args] = chunkLine + (startAddress / 2)
+			}
+
+			if m.Operation == "org" {
+				if inMacroDef != "" {
+					return fmt.Errorf("[E] cannot define origin inside macros")
+				}
+				RawAssemblySections[startAddress] = instructions
+				instructions = []Instruction{}
+				startAddress, err = parseImmidiateUints(m.Args)
+				chunkLine = 0
+				if err != nil {
+					return fmt.Errorf("[E] error parsing address %s, %s ", m.Args, err)
+				}
+				if (startAddress % 2) != 0 {
+					return fmt.Errorf("[W] address %s is not 16 bit aligned ", m.Args)
+				}
+			}
+
+			if m.Operation == "db" {
+				if inMacroDef != "" {
+					return fmt.Errorf("[E] cannot define data blob in macro")
+				}
+				RawAssemblySections[startAddress] = instructions
+				instructions = []Instruction{}
+				startAddress = startAddress + (chunkLine * 2)
+				chunkLine = 0
+
+				// Implementing strings only, more data later
+				data := []byte(m.Args)
+				entry := DataBlob{
+					Data:    data,
+					Address: startAddress + (chunkLine * 2),
+				}
+				DbSections = append(DbSections, entry)
+				startAddress += uint16((len(data) % 2) + len(data))
+			}
+
+			if m.Operation == "macro" {
+				if inMacroDef != "" {
+					return fmt.Errorf("[E] Cannot define macro inside another macro")
+				}
+				inMacroDef = m.Args
+				RawAssemblySections[startAddress] = instructions
+				instructions = []Instruction{}
+			}
+
+			if m.Operation == "endmacro" {
+				if inMacroDef == "" {
+					return fmt.Errorf("[E] No macro to complete")
+				}
+				RawMacroSections[inMacroDef] = instructions
+				instructions = []Instruction{}
+				inMacroDef = ""
+			}
+
+			if m.Operation == "import" {
+				if inMacroDef != "" {
+					return fmt.Errorf("[E] cannot import inside macro definition")
+				}
+				inMacroDef = m.Args
+				RawAssemblySections[startAddress] = instructions
+				instructions = []Instruction{}
+			}
+
+			if m.Operation == "invokeMacro" {
+				macroExpansion := RawMacroSections[m.Args]
+				for _, instr := range macroExpansion {
+					instr.Address = int(startAddress + chunkLine)
+					instructions = append(instructions, instr)
+					chunkLine++
+				}
+				continue
+			}
+		}
+
+		// if white space, comment, or meta skip instruction logic
+		if instruction.Mnemonic == "" {
+			continue
+		}
+		instructions = append(instructions, instruction)
+		if inMacroDef == "" {
+			chunkLine++
+		}
+	}
+
+	if inMacroDef != "" {
+		return fmt.Errorf("[E] macro definition was never close")
+
+	}
+
+	RawAssemblySections[startAddress] = instructions
+	return nil
 }
 
 func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
@@ -106,7 +234,7 @@ type Token struct {
 	Column   int
 }
 
-func TokenizeLine(code string) (tokens []Token, err error) {
+func tokenizeLine(code string) (tokens []Token, err error) {
 	tokens = []Token{}
 	line := 0
 	for i := 0; i < len(code); i++ {
@@ -211,9 +339,9 @@ func TokenizeLine(code string) (tokens []Token, err error) {
 	return tokens, nil
 }
 
-func ParseLine(line string) (Instruction, []Meta, error) {
+func parseLine(line string) (Instruction, []Meta, error) {
 	// Remove comments and trim whitespace
-	tokens, err := TokenizeLine(line)
+	tokens, err := tokenizeLine(line)
 	if err != nil {
 		return Instruction{}, []Meta{}, err
 	}
