@@ -134,7 +134,7 @@ func TokenizeLine(code string) (tokens []Token, err error) {
 
 		if r == '"' {
 			// Handle string literals
-			buf := "\""
+			buf := ""
 			i++
 			for ; i < len(code) && code[i] != '"'; i++ {
 				buf += string(code[i])
@@ -316,18 +316,18 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 		if err != nil {
 			return 0, err
 		} else {
-
 			if len(labelParsed) > 1 {
-				if labelParsed[1] == "HIGH)" {
+				if strings.Split(labelParsed[1], ")")[0] == "HIGH" {
 					imm &= 0xff00
-				} else if labelParsed[1] == "LOW)" {
+				} else if strings.Split(labelParsed[1], ")")[0] == "LOW" {
 					imm &= 0x00ff
 				} else {
 					return 0, fmt.Errorf("unknown suffix (%s", labelParsed[1])
 				}
+				return uint16(imm), nil
 			}
 		}
-		return 0, fmt.Errorf(" unable to parse [%s] into uint", num)
+		return 0, fmt.Errorf(" unable to parse [%s] indwto uint", num)
 	}
 }
 
@@ -425,7 +425,6 @@ func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err er
 		return [2]uint16{0, 0}, err
 	}
 
-	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -452,7 +451,6 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, err
 	}
 
-	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -468,7 +466,6 @@ func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, err
 	}
 
-	println(fmt.Sprintf("0x%04x 0x%04x", label_addr, line_addr))
 	rel_addr := int(label_addr) - line_addr - 1
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)

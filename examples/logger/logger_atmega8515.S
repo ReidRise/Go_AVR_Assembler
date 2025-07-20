@@ -90,10 +90,10 @@ Done:
 
 .org 0x400
 mystring:
-.db "THIS IS AN EXAMPLE LOG\n\n; AND LOOK A SEMI-Colon"
+.db "THIS IS AN EXAMPLE LOG"
 NOP
 
 .org 0x500
 debugLabel:
-.db "[DEBUG] "
+.db "[DEBUG]"
 NOP

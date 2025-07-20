@@ -94,7 +94,7 @@ func main() {
 					fmt.Printf("[E] Labels cannot be created in macros\n")
 					os.Exit(1)
 				}
-				fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
+				//fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
 				avrassembler.LabelMap[m.Args] = line + (startAddress / 2)
 			}
 
