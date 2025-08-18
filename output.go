@@ -53,6 +53,7 @@ func WriteToFile(fn string) (err error) {
 	// Parse Operands with context of all labels
 	for addr, instructionSection := range RawAssemblySections {
 		compiledAssembly := []string{}
+		// Split into two loops to write from low->high addr
 		for i := 0; i < len(instructionSection); i++ {
 			encodingFunc, ok := InstructionParse[instructionSection[i].Mnemonic]
 			if !ok {
@@ -79,7 +80,7 @@ func WriteToFile(fn string) (err error) {
 			hex := fmt.Sprintf("%x", le_enc)
 			hex = fmt.Sprintf("%04s", hex)
 			compiledAssembly = append(compiledAssembly, hex)
-			fmt.Printf("%6s %04s\n", instructionSection[i].Mnemonic, hex)
+			//fmt.Printf("%6s %04s\n", instructionSection[i].Mnemonic, hex)
 		}
 
 		fileContent, err := toIntelHex(compiledAssembly, int(addr))

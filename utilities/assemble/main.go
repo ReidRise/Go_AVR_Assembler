@@ -4,31 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 
 	avrassembler "avrassembler"
 )
-
-func parseImmidiateUints(num string) (imm uint16, err error) {
-	im, err := strconv.ParseUint(num, 10, 16)
-	if err == nil {
-		return uint16(im), nil
-	} else if num[0:2] == "0b" {
-		imm, err := strconv.ParseUint(num[2:], 2, 16)
-		if err != nil {
-			return 0, err
-		}
-		return uint16(imm), nil
-	} else if num[0:2] == "0x" {
-		imm, err := strconv.ParseUint(num[2:], 16, 16)
-		if err != nil {
-			return 0, err
-		}
-		return uint16(imm), nil
-	} else {
-		return 0, fmt.Errorf(" unable to parse [%s] into uint", num)
-	}
-}
 
 // CmdArgs holds input and output file names
 type cmdArgs struct {
@@ -64,7 +42,7 @@ func main() {
 		fmt.Printf("[E] %s\n", err)
 		os.Exit(1)
 	}
-	avrassembler.ParseFile(args.InputFile)
+	avrassembler.ParseFile(args.InputFile, 0x0000)
 	if err != nil {
 		println(err.Error())
 		os.Exit(1)
