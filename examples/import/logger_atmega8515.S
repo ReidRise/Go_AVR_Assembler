@@ -4,7 +4,7 @@ RJMP main
 
 main:
 setup_stack
-;RCALL USART_Init
+RCALL USART_Init
 
 ; Main loop
 BACK:
@@ -12,10 +12,10 @@ COM R16
 OUT 0x18, r16
 LDI r31, 0x05
 LDI r30, 0x00
-;RCALL ReadLoop
+RCALL ReadLoop
 LDI r31, 0x04
 LDI r30, 0x00
-;RCALL ReadLoop
+RCALL ReadLoop
 RCALL delay
 RJMP BACK
 
@@ -61,10 +61,10 @@ Done:
 
 .org 0x400
 mystring:
-.db "THIS IS AN EXAMPLE LOG"
+.db " THIS IS AN EXAMPLE LOG "
 NOP
 
 .org 0x500
 debugLabel:
-.db "[DEBUG]"
+.db " [DEBUG]"
 NOP

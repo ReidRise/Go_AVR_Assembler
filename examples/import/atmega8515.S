@@ -17,7 +17,7 @@ delay: LDI r22, 1
 la: LDI r23, 1
 l0: LDI r24, 1
 l1: LDI r25, 1
-l2: LDI r26, 200
+l2: LDI r26, 10
 l3: LDI r27, 255
 l4: DEC r27
 NOP
