@@ -40,7 +40,7 @@ func isMacro(macro string) (meta Meta, exists bool) {
 	return meta, ok
 }
 
-func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint16) {
+func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err error) {
 	file, err := os.Open(fn)
 	if err != nil {
 		log.Fatal(err)
@@ -60,7 +60,7 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 		codeLine++
 		instruction, meta, err := parseLine(scanner.Text())
 		if err != nil {
-			return fmt.Errorf("[E] error in file %s on line %d, %s ", fn, codeLine, err), 0
+			return 0, fmt.Errorf("[E] error in file %s on line %d, %s ", fn, codeLine, err)
 		}
 		instruction.Address = int(chunkLine + (startAddress / 2))
 		instruction.Line = int(codeLine)
@@ -68,7 +68,7 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 		for _, m := range meta {
 			if m.Operation == "label" {
 				if inMacroDef != "" {
-					return fmt.Errorf("[E] labels cannot be created in macros"), 0
+					return 0, fmt.Errorf("[E] labels cannot be created in macros")
 				}
 				//fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
 				LabelMap[m.Args] = chunkLine + (startAddress / 2)
@@ -76,23 +76,23 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 
 			if m.Operation == "org" {
 				if inMacroDef != "" {
-					return fmt.Errorf("[E] cannot define origin inside macros"), 0
+					return 0, fmt.Errorf("[E] cannot define origin inside macros")
 				}
 				RawAssemblySections[startAddress] = instructions
 				instructions = []Instruction{}
 				startAddress, err = parseImmidiateUints(m.Args)
 				chunkLine = 0
 				if err != nil {
-					return fmt.Errorf("[E] error parsing address %s, %s ", m.Args, err), 0
+					return 0, fmt.Errorf("[E] error parsing address %s, %s ", m.Args, err)
 				}
 				if (startAddress % 2) != 0 {
-					return fmt.Errorf("[W] address %s is not 16 bit aligned ", m.Args), 0
+					return 0, fmt.Errorf("[W] address %s is not 16 bit aligned ", m.Args)
 				}
 			}
 
 			if m.Operation == "db" {
 				if inMacroDef != "" {
-					return fmt.Errorf("[E] cannot define data blob in macro"), 0
+					return 0, fmt.Errorf("[E] cannot define data blob in macro")
 				}
 				RawAssemblySections[startAddress] = instructions
 				instructions = []Instruction{}
@@ -111,7 +111,7 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 
 			if m.Operation == "macro" {
 				if inMacroDef != "" {
-					return fmt.Errorf("[E] Cannot define macro inside another macro"), 0
+					return 0, fmt.Errorf("[E] Cannot define macro inside another macro")
 				}
 				inMacroDef = m.Args
 				RawAssemblySections[startAddress] = instructions
@@ -120,7 +120,7 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 
 			if m.Operation == "endmacro" {
 				if inMacroDef == "" {
-					return fmt.Errorf("[E] No macro to complete"), 0
+					return 0, fmt.Errorf("[E] No macro to complete")
 				}
 				RawMacroSections[inMacroDef] = instructions
 				instructions = []Instruction{}
@@ -129,15 +129,15 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 
 			if m.Operation == "import" {
 				if inMacroDef != "" {
-					return fmt.Errorf("[E] cannot import inside macro definition"), 0
+					return 0, fmt.Errorf("[E] cannot import inside macro definition")
 				}
 				importFileName := m.Args
 				RawAssemblySections[startAddress] = instructions
 				instructions = []Instruction{}
-				err, startAddress = ParseFile(importFileName, uint16(startAddress+(chunkLine*2)))
+				startAddress, err = ParseFile(importFileName, uint16(startAddress+(chunkLine*2)))
 				chunkLine = 0
 				if err != nil {
-					return err, 0
+					return 0, err
 				}
 			}
 
@@ -164,12 +164,12 @@ func ParseFile(fn string, startAddress uint16) (err error, handoverAddress uint1
 	}
 
 	if inMacroDef != "" {
-		return fmt.Errorf("[E] macro definition was never close"), 0
+		return 0, fmt.Errorf("[E] macro definition was never close")
 
 	}
 
 	RawAssemblySections[startAddress] = instructions
-	return nil, uint16(startAddress + (chunkLine * 2))
+	return uint16(startAddress + (chunkLine * 2)), nil
 }
 
 func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
