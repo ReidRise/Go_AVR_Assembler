@@ -12,9 +12,9 @@ It was created to fill the gap in tooling for developers who want to work direct
 - ✅ Minimal external dependencies (pure Go)
 - ✅ Flexible instruction encoding engine
 - ✅ Label and branching support
-- 🔜 Planned macro support (custom macros for repeated blocks)
-- 🔜 Planned multi-file compilation (for large projects)
-- 🔜 Planned definition/includes support (like .equ, .include)
+- ✅ Macro support (custom macros for repeated blocks)
+- ✅ Multi-file compilation (for large projects)
+- ✅ Definition support .db
 
 Why Build This?
 
@@ -42,9 +42,8 @@ The output is a Intel HEX file (future configurable).
 | Full AVR 16-bit instruction set | 🚧 In progress |
 | Label support | ✅ |
 | Relative branching | ✅ |
-| Macro expansion | 🔜 Planned |
-| Multi-file project support | 🔜 Planned |
-| .equ / .include definitions | 🔜 Planned |
+| Macro expansion | ✅ |
+| Multi-file project support | ✅ |
 | Helpful error reporting | 🔜 Planned |
 
 ## License
