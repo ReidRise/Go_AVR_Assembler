@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"slices"
-
-	"golang.org/x/exp/slog"
 )
 
 func toIntelHex(compiledAssembly []string, startingAddress int) (string, error) {
@@ -124,7 +122,7 @@ func WriteToFile(fn string) (err error) {
 	if err != nil {
 		return err
 	}
-	slog.Info(l, "bytes written successfully")
+	slog.Info("%d bytes written successfully", l)
 	err = f.Close()
 	if err != nil {
 		return err
