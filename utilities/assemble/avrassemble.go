@@ -6,6 +6,8 @@ import (
 	"os"
 
 	avrassembler "avrassembler"
+
+	"golang.org/x/exp/slog"
 )
 
 // CmdArgs holds input and output file names
@@ -39,18 +41,20 @@ func parseCmdArgs() (*cmdArgs, error) {
 func main() {
 	args, err := parseCmdArgs()
 	if err != nil {
-		fmt.Printf("[E] %s\n", err)
+		slog.Error("%s\n", err)
 		os.Exit(1)
 	}
 	avrassembler.ParseFile(args.InputFile, 0x0000)
 	if err != nil {
-		println(err.Error())
+		slog.Error(err.Error())
+		avrassembler.DumpLabelMap()
 		os.Exit(1)
 	}
 
 	err = avrassembler.WriteToFile(args.OutputFile)
 	if err != nil {
-		println(err.Error())
+		slog.Error(err.Error())
+		avrassembler.DumpLabelMap()
 		os.Exit(1)
 	}
 }

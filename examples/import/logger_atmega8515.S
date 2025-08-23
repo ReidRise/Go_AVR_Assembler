@@ -28,7 +28,7 @@ OUT 0x09, r16
 ; Enable receiver and transmitter
 LDI r16, 0b00011000
 OUT 0x0a, r16
-; Set frame format: 8data, 2stop bit
+; Set frame format: 8data, 1stop bit
 LDI r16, 0b10001110
 OUT 0x20, r16
 POP r17
