@@ -1,7 +1,7 @@
 package avrassembler
 
 import (
-	"golang.org/x/exp/slog"
+	"log/slog"
 )
 
 type DataBlob struct {

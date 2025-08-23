@@ -3,11 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	avrassembler "avrassembler"
-
-	"golang.org/x/exp/slog"
 )
 
 // CmdArgs holds input and output file names
