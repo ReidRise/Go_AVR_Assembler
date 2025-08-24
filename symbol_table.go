@@ -1,7 +1,9 @@
 package avrassembler
 
 import (
-	"log/slog"
+	"fmt"
+
+	simplelog "github.com/ReidRise/simplelogger"
 )
 
 type DataBlob struct {
@@ -17,8 +19,8 @@ var RawMacroSections = map[string][]Instruction{}
 var DbSections = []DataBlob{}
 
 func DumpLabelMap() {
-	slog.Debug("Label Map:\n")
+	simplelog.Debug("Label Map:")
 	for key, value := range LabelMap {
-		slog.Debug("\t%s @ 0x%04x\n", key, value)
+		simplelog.Debug(fmt.Sprintf("\t%s @ 0x%04x", key, value))
 	}
 }

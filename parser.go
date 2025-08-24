@@ -3,12 +3,13 @@ package avrassembler
 import (
 	"bufio"
 	"fmt"
-	"log/slog"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"unicode"
+
+	simplelog "github.com/ReidRise/simplelogger"
 )
 
 type PointerRegister byte
@@ -50,7 +51,7 @@ func isMacro(macro string) (meta Meta, exists bool) {
 func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err error) {
 	file, err := os.Open(fn)
 	if err != nil {
-		slog.Error(err.Error())
+		simplelog.Error(err.Error())
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -62,7 +63,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 	// Line in raw assembly section
 	chunkLine := uint16(0)
 
-	slog.Info("Entering File %s at starting address 0x%04x\n", fn, startAddress/2)
+	simplelog.Info(fmt.Sprintf("Entering File %s at starting address 0x%04x", fn, startAddress/2))
 	for scanner.Scan() {
 		codeLine++
 		instruction, meta, err := parseLine(scanner.Text())
@@ -167,7 +168,8 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 			continue
 		}
 		instructions = append(instructions, instruction)
-		slog.Debug("Parsing Instruction %s in file %s at line %d at address 0x%04x\n", instruction.Mnemonic, fn, instruction.Line, instruction.Address)
+		simplelog.Trace(fmt.Sprintf("Parsing Instruction %s in file %s at line %d at address 0x%04x",
+			instruction.Mnemonic, fn, instruction.Line, instruction.Address))
 		if inMacroDef == "" {
 			chunkLine++
 			// 32bit istructions move the PC by 2

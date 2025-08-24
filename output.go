@@ -3,9 +3,10 @@ package avrassembler
 import (
 	"encoding/hex"
 	"fmt"
-	"log/slog"
 	"os"
 	"slices"
+
+	simplelog "github.com/ReidRise/simplelogger"
 )
 
 func toIntelHex(compiledAssembly []string, startingAddress int) (string, error) {
@@ -72,7 +73,7 @@ func WriteToFile(fn string) (err error) {
 
 			ins, ok := InstructionSet[instructionSection[i].Mnemonic]
 			if !ok {
-				return fmt.Errorf("Encoding function not found for %s on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
+				return fmt.Errorf("encoding function not found for %s on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
 			}
 
 			enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
@@ -81,13 +82,13 @@ func WriteToFile(fn string) (err error) {
 			hex := fmt.Sprintf("%x", le_enc)
 			hex = fmt.Sprintf("%04s", hex)
 			compiledAssembly = append(compiledAssembly, hex)
-			slog.Debug("%6s %04s\n", instructionSection[i].Mnemonic, hex)
+			simplelog.Debug(fmt.Sprintf("%6s %04s", instructionSection[i].Mnemonic, hex))
 
 			// Extra handling for 32bit instructions
 			if slices.Contains(LongInstructions, instructionSection[i].Mnemonic) {
 				ins, ok := InstructionSet["_"+instructionSection[i].Mnemonic]
 				if !ok {
-					return fmt.Errorf("Second encoding function not found for _%s", instructionSection[i].Mnemonic)
+					return fmt.Errorf("second encoding function not found for _%s", instructionSection[i].Mnemonic)
 				}
 				enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
 				le_enc := ((enc[0] >> 8) & 0x00ff) | ((enc[0] << 8) & 0xff00)
@@ -112,7 +113,7 @@ func WriteToFile(fn string) (err error) {
 		fileOut += fileContent
 	}
 	fileOut += ":00000001FF"
-	println(fileOut)
+	simplelog.Debug("\n" + fileOut)
 	os.Remove(fn)
 	f, err := os.Create(fn)
 	if err != nil {
@@ -122,7 +123,7 @@ func WriteToFile(fn string) (err error) {
 	if err != nil {
 		return err
 	}
-	slog.Info("%d bytes written successfully", l)
+	simplelog.Info(fmt.Sprintf("%d bytes written successfully", l))
 	err = f.Close()
 	if err != nil {
 		return err
