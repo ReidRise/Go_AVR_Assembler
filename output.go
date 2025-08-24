@@ -115,9 +115,9 @@ func WriteToFile(fn string) (err error) {
 		}
 		fileOut += fileContent
 	}
+	DumpLabelMap()
 	fileOut += ":00000001FF"
 	simplelog.Debug("\n" + fileOut)
-	DumpLabelMap()
 	os.Remove(fn)
 	f, err := os.Create(fn)
 	if err != nil {

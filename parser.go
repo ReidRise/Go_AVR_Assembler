@@ -489,9 +489,7 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 			if len(labelParsed) > 1 {
 				if strings.Split(labelParsed[1], ")")[0] == "HIGH" {
 					imm &= 0xff00
-					println(imm)
 					imm = imm >> 8
-					println(imm)
 				} else if strings.Split(labelParsed[1], ")")[0] == "LOW" {
 					imm &= 0x00ff
 				} else {
