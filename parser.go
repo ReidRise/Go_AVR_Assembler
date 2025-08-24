@@ -3,11 +3,13 @@ package avrassembler
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
+
+	simplelog "github.com/ReidRise/simplelogger"
 )
 
 type PointerRegister byte
@@ -19,10 +21,16 @@ const (
 )
 
 type Instruction struct {
+	Long     bool
 	Mnemonic string
 	Operands []Token
 	Address  int // Tracking jumps and branches
 	Line     int // For error reporting
+}
+
+// List of 32bit Instructions
+var LongInstructions = []string{
+	"LDS",
 }
 
 type Meta struct {
@@ -43,7 +51,7 @@ func isMacro(macro string) (meta Meta, exists bool) {
 func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err error) {
 	file, err := os.Open(fn)
 	if err != nil {
-		log.Fatal(err)
+		simplelog.Error(err.Error())
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -55,12 +63,12 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 	// Line in raw assembly section
 	chunkLine := uint16(0)
 
-	fmt.Printf("Entering File %s at starting address 0x%04x\n", fn, startAddress/2)
+	simplelog.Info(fmt.Sprintf("Entering File %s at starting address 0x%04x", fn, startAddress/2))
 	for scanner.Scan() {
 		codeLine++
 		instruction, meta, err := parseLine(scanner.Text())
 		if err != nil {
-			return 0, fmt.Errorf("[E] error in file %s on line %d, %s ", fn, codeLine, err)
+			return 0, fmt.Errorf("error in file %s on line %d, %s ", fn, codeLine, err)
 		}
 		instruction.Address = int(chunkLine + (startAddress / 2))
 		instruction.Line = int(codeLine)
@@ -68,31 +76,30 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 		for _, m := range meta {
 			if m.Operation == "label" {
 				if inMacroDef != "" {
-					return 0, fmt.Errorf("[E] labels cannot be created in macros")
+					return 0, fmt.Errorf("labels cannot be created in macros")
 				}
-				//fmt.Printf("%s added to labelmap at %d\n", m.Args, line+(startAddress/2))
 				LabelMap[m.Args] = chunkLine + (startAddress / 2)
 			}
 
 			if m.Operation == "org" {
 				if inMacroDef != "" {
-					return 0, fmt.Errorf("[E] cannot define origin inside macros")
+					return 0, fmt.Errorf("cannot define origin inside macros")
 				}
 				RawAssemblySections[startAddress] = instructions
 				instructions = []Instruction{}
 				startAddress, err = parseImmidiateUints(m.Args)
 				chunkLine = 0
 				if err != nil {
-					return 0, fmt.Errorf("[E] error parsing address %s, %s ", m.Args, err)
+					return 0, fmt.Errorf("error parsing address %s, %s ", m.Args, err)
 				}
 				if (startAddress % 2) != 0 {
-					return 0, fmt.Errorf("[W] address %s is not 16 bit aligned ", m.Args)
+					return 0, fmt.Errorf("address %s is not 16 bit aligned ", m.Args)
 				}
 			}
 
 			if m.Operation == "db" {
 				if inMacroDef != "" {
-					return 0, fmt.Errorf("[E] cannot define data blob in macro")
+					return 0, fmt.Errorf("cannot define data blob in macro")
 				}
 				RawAssemblySections[startAddress] = instructions
 				instructions = []Instruction{}
@@ -111,7 +118,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 
 			if m.Operation == "macro" {
 				if inMacroDef != "" {
-					return 0, fmt.Errorf("[E] Cannot define macro inside another macro")
+					return 0, fmt.Errorf("cannot define macro inside another macro")
 				}
 				inMacroDef = m.Args
 				RawAssemblySections[startAddress] = instructions
@@ -120,7 +127,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 
 			if m.Operation == "endmacro" {
 				if inMacroDef == "" {
-					return 0, fmt.Errorf("[E] No macro to complete")
+					return 0, fmt.Errorf("no macro to complete")
 				}
 				RawMacroSections[inMacroDef] = instructions
 				instructions = []Instruction{}
@@ -129,7 +136,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 
 			if m.Operation == "import" {
 				if inMacroDef != "" {
-					return 0, fmt.Errorf("[E] cannot import inside macro definition")
+					return 0, fmt.Errorf("cannot import inside macro definition")
 				}
 				importFileName := m.Args
 				RawAssemblySections[startAddress] = instructions
@@ -147,6 +154,10 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 					instr.Address = int(startAddress + chunkLine)
 					instructions = append(instructions, instr)
 					chunkLine++
+					// 32bit istructions move the PC by 2
+					if slices.Contains(LongInstructions, instruction.Mnemonic) {
+						chunkLine++
+					}
 				}
 				continue
 			}
@@ -157,14 +168,19 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 			continue
 		}
 		instructions = append(instructions, instruction)
-		fmt.Printf("Parsing Instruction %s in file %s at line %d at address 0x%04x\n", instruction.Mnemonic, fn, instruction.Line, instruction.Address)
+		simplelog.Trace(fmt.Sprintf("Parsing Instruction %s in file %s at line %d at address 0x%04x",
+			instruction.Mnemonic, fn, instruction.Line, instruction.Address))
 		if inMacroDef == "" {
 			chunkLine++
+			// 32bit istructions move the PC by 2
+			if slices.Contains(LongInstructions, instruction.Mnemonic) {
+				chunkLine++
+			}
 		}
 	}
 
 	if inMacroDef != "" {
-		return 0, fmt.Errorf("[E] macro definition was never close")
+		return 0, fmt.Errorf("macro definition was never close")
 
 	}
 
@@ -384,13 +400,17 @@ type ParserFunc func(args []string, line_addr int) ([2]uint16, error)
 
 var InstructionParse = map[string]ParserFunc{
 	// Arithmetic and Logic Instructions
-	"ADC": parseTwoRegs,
-	"ADD": parseTwoRegs,
+	"ADC":  parseTwoRegs,
+	"ADD":  parseTwoRegs,
+	"AND":  parseTwoRegs,
+	"ANDI": parseRegImm,
 	//ADIW
 	"COM": parseOneReg,
 	"DEC": parseOneReg,
 	"SUB": parseTwoRegs,
 	//SUBI
+	"OR":    parseTwoRegs,
+	"ORI":   parseRegImm,
 	"SBC":   parseTwoRegs,
 	"SBIS":  parseSkipBit,
 	"LDI":   parseRegImm,
@@ -407,6 +427,8 @@ var InstructionParse = map[string]ParserFunc{
 	"RCALL": parseRelBranch,
 	"RET":   parseConst,
 	"LPM":   parseLPM,
+	"LDS":   parseLDS,
+	"STS":   parseSTS,
 	"ELPM":  parseELPM,
 	"NOP":   parseConst,
 	"TST":   parseTST,
@@ -452,6 +474,9 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 		imm, err := strconv.ParseUint(num[2:], 16, 16)
 		if err != nil {
 			return 0, err
+		}
+		if imm > 65535 {
+			return 0, fmt.Errorf("value %d larger than 16bits(65535)", imm)
 		}
 		return uint16(imm), nil
 	} else {
@@ -535,6 +560,7 @@ func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, e
 func getLabelAddress(label string) (addr uint16, err error) {
 	addr, ok := LabelMap[label]
 	if !ok {
+		// panic("FUCK")
 		return 0, fmt.Errorf("label [%s] not found", label)
 	}
 	return addr, nil
@@ -688,6 +714,31 @@ func parseRegImm(args []string, line_addr int) (ops [2]uint16, err error) {
 	ops[0] = ops[0] - 16
 
 	ops[1], err = parseImmidiateUints(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	return ops, nil
+}
+
+func parseLDS(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops[0], err = parseRegister5bits(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	ops[1], err = parseImmidiateUints(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	return ops, nil
+}
+
+func parseSTS(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops[0], err = parseImmidiateUints(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+
+	ops[1], err = parseRegister5bits(args[1])
 	if err != nil {
 		return [2]uint16{0, 0}, err
 	}

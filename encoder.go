@@ -3,9 +3,9 @@ package avrassembler
 type EncoderFunc func(bytecode uint16, rd uint16, rr uint16) [1]uint16
 
 type InstructionDef struct {
-	Operands int
-	ByteCode uint16
-	Encode   EncoderFunc
+	Operands int         // Number of Operands
+	ByteCode uint16      // Static Instruction Mask
+	Encode   EncoderFunc // Function to encode instruction
 }
 
 /*
@@ -123,10 +123,12 @@ var InstructionSet = map[string]InstructionDef{
 	"MOV":  {Operands: 2, ByteCode: 0b_0010_1100_0000_0000, Encode: EncodeTwoRegs},
 	"MOVW": {Operands: 2, ByteCode: 0b_0000_0001_0000_0000, Encode: EncodeAdvMath},
 	"LDI":  {Operands: 2, ByteCode: 0b_1110_0000_0000_0000, Encode: EncodeRegImm},
-	// "LDS":  {Operands: 2, ByteCode: 0b1001000000000000, Encode: EncodeLoadMemory},
+	"LDS":  {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLoadMemory},
+	"_LDS": {Operands: 2, ByteCode: 0b_0000_0000_0000_0000, Encode: EncodeLoadValue},
 	// "LD":
 	// "LDD":
-	// "STS": {Operands: 2, ByteCode: 0b1001001000000000, Encode: EncodeLoadMemory},
+	"STS":  {Operands: 2, ByteCode: 0b_1001_0010_0000_0000, Encode: EncodeLoadMemory},
+	"_STS": {Operands: 2, ByteCode: 0b_0000_0000_0000_0000, Encode: EncodeStoreValue},
 	// "ST":
 	// "STD":
 	"LPM":  {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLPM}, // zo-form: 1001_0101_110q_1000 (opcode nibble 3) | ls-form: 1001_000d_dddd_01q0 (opcode nibble 4)
@@ -181,13 +183,6 @@ func EncodeRelBranch(bytecode uint16, kk uint16, _ uint16) [1]uint16 {
 	encoded := bytecode
 	encoded |= kk
 	return [1]uint16{encoded}
-}
-
-func EncodeLoadMemory(bytecode uint16, rd uint16, kk uint16) [2]uint16 {
-	// Base opcode for LDS
-	encoded := bytecode
-	encoded |= ((rd & 0x1F) << 4)
-	return [2]uint16{encoded, kk}
 }
 
 func EncodeBranchSreg(bytecode uint16, ss uint16, kk uint16) [1]uint16 {
@@ -277,6 +272,28 @@ func EncodeWordImm(bytecode uint16, rd uint16, kk uint16) [1]uint16 {
 	encoded |= (rd & 0x03) << 4
 	encoded |= (kk & 0x30) << 2
 	encoded |= (kk & 0x0f)
+	return [1]uint16{encoded}
+}
+
+func EncodeStoreMemory(bytecode uint16, _ uint16, rd uint16) [1]uint16 {
+	encoded := bytecode
+	encoded |= ((rd & 0x1F) << 4)
+	return [1]uint16{encoded}
+}
+
+func EncodeStoreValue(bytecode uint16, kk uint16, _ uint16) [1]uint16 {
+	encoded := kk
+	return [1]uint16{encoded}
+}
+
+func EncodeLoadMemory(bytecode uint16, rd uint16, _ uint16) [1]uint16 {
+	encoded := bytecode
+	encoded |= ((rd & 0x1F) << 4)
+	return [1]uint16{encoded}
+}
+
+func EncodeLoadValue(bytecode uint16, _ uint16, kk uint16) [1]uint16 {
+	encoded := kk
 	return [1]uint16{encoded}
 }
 
