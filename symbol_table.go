@@ -11,9 +11,14 @@ type DataBlob struct {
 	Address uint16
 }
 
+type AssemblySection struct {
+	Address  uint16
+	Assembly []Instruction
+}
+
 var LabelMap = map[string]uint16{}
 
-var RawAssemblySections = map[uint16][]Instruction{}
+var RawAssemblySections = []AssemblySection{}
 var RawMacroSections = map[string][]Instruction{}
 
 var DbSections = []DataBlob{}

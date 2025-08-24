@@ -53,7 +53,10 @@ func intelHexChecksum(line string) (res string, err error) {
 func WriteToFile(fn string) (err error) {
 	fileOut := ""
 	// Parse Operands with context of all labels
-	for addr, instructionSection := range RawAssemblySections {
+	simplelog.Info("Begin Encoding...")
+	for _, rawSection := range RawAssemblySections {
+		addr := rawSection.Address
+		instructionSection := rawSection.Assembly
 		compiledAssembly := []string{}
 		// Split into two loops to write from low->high addr
 		for i := 0; i < len(instructionSection); i++ {
@@ -114,6 +117,7 @@ func WriteToFile(fn string) (err error) {
 	}
 	fileOut += ":00000001FF"
 	simplelog.Debug("\n" + fileOut)
+	DumpLabelMap()
 	os.Remove(fn)
 	f, err := os.Create(fn)
 	if err != nil {

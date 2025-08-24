@@ -85,7 +85,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				if inMacroDef != "" {
 					return 0, fmt.Errorf("cannot define origin inside macros")
 				}
-				RawAssemblySections[startAddress] = instructions
+				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
 				startAddress, err = parseImmidiateUints(m.Args)
 				chunkLine = 0
@@ -101,7 +101,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				if inMacroDef != "" {
 					return 0, fmt.Errorf("cannot define data blob in macro")
 				}
-				RawAssemblySections[startAddress] = instructions
+				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
 				startAddress = startAddress + (chunkLine * 2)
 				chunkLine = 0
@@ -121,7 +121,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 					return 0, fmt.Errorf("cannot define macro inside another macro")
 				}
 				inMacroDef = m.Args
-				RawAssemblySections[startAddress] = instructions
+				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
 			}
 
@@ -139,7 +139,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 					return 0, fmt.Errorf("cannot import inside macro definition")
 				}
 				importFileName := m.Args
-				RawAssemblySections[startAddress] = instructions
+				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
 				startAddress, err = ParseFile(importFileName, uint16(startAddress+(chunkLine*2)))
 				chunkLine = 0
@@ -184,7 +184,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 
 	}
 
-	RawAssemblySections[startAddress] = instructions
+	RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 	return uint16(startAddress + (chunkLine * 2)), nil
 }
 
@@ -482,12 +482,16 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 	} else {
 		labelParsed := strings.Split(num, "(")
 		imm, err := getLabelAddress(labelParsed[0])
+		imm *= 2 // Addresses are stored at half the physical memory address (Probaly need to fix this)
 		if err != nil {
 			return 0, err
 		} else {
 			if len(labelParsed) > 1 {
 				if strings.Split(labelParsed[1], ")")[0] == "HIGH" {
 					imm &= 0xff00
+					println(imm)
+					imm = imm >> 8
+					println(imm)
 				} else if strings.Split(labelParsed[1], ")")[0] == "LOW" {
 					imm &= 0x00ff
 				} else {
