@@ -164,6 +164,17 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				}
 				continue
 			}
+
+			if m.Operation == "define" {
+				variableName := strings.Split(m.Args, ":")[0]
+
+				// Probably re-implement parse function to remove using label for variable (or maybe not could be useful for strings)
+				variableValue, err := parseImmidiateUints(strings.Split(m.Args, ":")[1])
+				if err != nil {
+					return 0, err
+				}
+				VariableMapping[variableName] = variableValue
+			}
 		}
 
 		// if white space, comment, or meta skip instruction logic
@@ -246,6 +257,17 @@ func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
 				meta[i].Operation = "import"
 				meta[i].Args = tokens[i+1].Value
 				i++
+			case ".define":
+				parsedTokens += 2
+				if len(tokens) < i+1 {
+					return meta, 0, fmt.Errorf("no variable name given")
+				}
+				if len(tokens) < i+2 {
+					return meta, 0, fmt.Errorf("no value given for %s", tokens[i+1].Value)
+				}
+				meta[i].Operation = "define"
+				meta[i].Args = fmt.Sprintf("%s:%s", tokens[i+1].Value, tokens[i+2].Value)
+				i += 2
 			}
 		}
 	}
@@ -295,6 +317,21 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 			}
 		}
 
+		if r == '$' {
+			buf := "$"
+			i++
+			for ; i < len(code); i++ {
+				if unicode.IsSpace(rune(code[i])) || rune(code[i]) == ',' || rune(code[i]) == ' ' || rune(code[i]) == ';' {
+					break
+				}
+				if strings.ContainsAny(string(code[i]), ".,?/\\[]{}()*&^%$#@!<>-:;\"'") {
+					return tokens, fmt.Errorf("special character found in variable name")
+				}
+				buf += string(code[i])
+			}
+			tokens = append(tokens, Token{Type: "Variable", Value: buf, DataType: "String", Line: line, Column: i})
+		}
+
 		if r == '"' {
 			// Handle string literals
 			buf := ""
@@ -335,8 +372,8 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 				tokenType = "Binary"
 				i = i + 2
 				buf += "0b"
-				for ; i < len(code) && rune(code[i]) != ','; i++ {
-					if unicode.IsSpace(rune(code[i])) {
+				for ; i < len(code); i++ {
+					if unicode.IsSpace(rune(code[i])) || rune(code[i]) == ',' || rune(code[i]) == ' ' || rune(code[i]) == ';' {
 						break
 					}
 					if !strings.ContainsAny(strings.ToUpper(string(code[i])), "1 | 0") {
@@ -347,7 +384,13 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 			} else {
 				tokenType = "Decimal"
 				buf := ""
-				for ; i < len(code) && unicode.IsDigit(rune(code[i])); i++ {
+				for ; i < len(code); i++ {
+					if unicode.IsSpace(rune(code[i])) || rune(code[i]) == ',' || rune(code[i]) == ' ' || rune(code[i]) == ';' {
+						break
+					}
+					if !unicode.IsDigit(rune(code[i])) {
+						return tokens, fmt.Errorf("non-decimal digit on line %d col %d", line, i)
+					}
 					buf += string(code[i])
 				}
 			}
@@ -467,6 +510,12 @@ func parseImmidiateUints(num string) (imm uint16, err error) {
 	im, err := strconv.ParseUint(num, 10, 16)
 	if err == nil {
 		return uint16(im), nil
+	} else if num[0] == '$' {
+		variable, ok := VariableMapping[num[1:]]
+		if !ok {
+			return 0, fmt.Errorf("%s not defined", num[1:])
+		}
+		return variable, nil
 	} else if num[0:2] == "0b" {
 		imm, err := strconv.ParseUint(num[2:], 2, 16)
 		if err != nil {

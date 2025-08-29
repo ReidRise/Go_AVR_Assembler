@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 
 	avrassembler "avrassembler"
@@ -67,14 +66,14 @@ func main() {
 
 	avrassembler.ParseFile(args.InputFile, 0x0000)
 	if err != nil {
-		slog.Error(err.Error())
+		simplelog.Error(err.Error())
 		avrassembler.DumpLabelMap()
 		os.Exit(1)
 	}
 
 	err = avrassembler.WriteToFile(args.OutputFile)
 	if err != nil {
-		slog.Error(err.Error())
+		simplelog.Error(err.Error())
 		avrassembler.DumpLabelMap()
 		os.Exit(1)
 	}
