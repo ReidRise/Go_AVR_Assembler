@@ -26,6 +26,7 @@ type Instruction struct {
 	Operands []Token
 	Address  int // Tracking jumps and branches
 	Line     int // For error reporting
+	File     string
 }
 
 // List of 32bit Instructions
@@ -70,6 +71,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 		if err != nil {
 			return 0, fmt.Errorf("error in file %s on line %d, %s ", fn, codeLine, err)
 		}
+		instruction.File = fn
 		instruction.Address = int(chunkLine + (startAddress / 2))
 		instruction.Line = int(codeLine)
 
@@ -108,6 +110,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 
 				// Implementing strings only, more data later
 				data := []byte(m.Args)
+				data = append(data, byte(0))
 				entry := DataBlob{
 					Data:    data,
 					Address: startAddress + (chunkLine * 2),

@@ -60,23 +60,23 @@ func WriteToFile(fn string) (err error) {
 		compiledAssembly := []string{}
 		// Split into two loops to write from low->high addr
 		for i := 0; i < len(instructionSection); i++ {
-			encodingFunc, ok := InstructionParse[instructionSection[i].Mnemonic]
+			parsingFunc, ok := InstructionParse[instructionSection[i].Mnemonic]
 			if !ok {
-				return fmt.Errorf("parsing function not found for %s not found on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
+				return fmt.Errorf("parsing function not found for %s not found on line %d of %s", instructionSection[i].Mnemonic, instructionSection[i].Line, instructionSection[i].File)
 			}
 			operands := []string{}
 			for _, o := range instructionSection[i].Operands {
 				operands = append(operands, o.Value)
 			}
 
-			ops, err := encodingFunc(operands, instructionSection[i].Address)
+			ops, err := parsingFunc(operands, instructionSection[i].Address)
 			if err != nil {
-				return fmt.Errorf("%s, Found on line %d", err, instructionSection[i].Line)
+				return fmt.Errorf("%s, Found on line %d of file %s", err, instructionSection[i].Line, instructionSection[i].File)
 			}
 
 			ins, ok := InstructionSet[instructionSection[i].Mnemonic]
 			if !ok {
-				return fmt.Errorf("encoding function not found for %s on line %d", instructionSection[i].Mnemonic, instructionSection[i].Line)
+				return fmt.Errorf("encoding function not found for %s on line %d of %s", instructionSection[i].Mnemonic, instructionSection[i].Line, instructionSection[i].File)
 			}
 
 			enc := ins.Encode(ins.ByteCode, ops[0], ops[1])
