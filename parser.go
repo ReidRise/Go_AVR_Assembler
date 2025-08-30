@@ -337,7 +337,26 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 			buf := ""
 			i++
 			for ; i < len(code) && code[i] != '"'; i++ {
-				buf += string(code[i])
+				if code[i] == '\\' {
+					if len(code) < i+1 {
+						return tokens, fmt.Errorf("unfinished escape on line %d", line)
+					}
+					switch code[i+1] {
+					case 't':
+						buf += "    "
+					case 'n':
+						buf += "\n"
+					case 'b':
+						buf += "\b"
+					case '\\':
+						buf += "\\"
+					default:
+						return tokens, fmt.Errorf("unrecognized exscaped char on line %d", line)
+					}
+					i++
+				} else {
+					buf += string(code[i])
+				}
 			}
 
 			if code[len(code)-1] != '"' {
