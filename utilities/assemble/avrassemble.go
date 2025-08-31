@@ -64,7 +64,7 @@ func main() {
 
 	avrassembler.SetLogLevel(level)
 
-	avrassembler.ParseFile(args.InputFile, 0x0000)
+	_, err = avrassembler.ParseFile(args.InputFile, 0x0000)
 	if err != nil {
 		simplelog.Error(err.Error())
 		avrassembler.DumpLabelMap()
