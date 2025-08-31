@@ -125,12 +125,11 @@ var InstructionSet = map[string]InstructionDef{
 	"LDI":  {Operands: 2, ByteCode: 0b_1110_0000_0000_0000, Encode: EncodeRegImm},
 	"LDS":  {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLoadMemory},
 	"_LDS": {Operands: 2, ByteCode: 0b_0000_0000_0000_0000, Encode: EncodeLoadValue},
-	// "LD":
+	"LD":   {Operands: 2, ByteCode: 0b_1001_0010_0000_0000, Encode: EncodeST},
 	// "LDD":
 	"STS":  {Operands: 2, ByteCode: 0b_1001_0010_0000_0000, Encode: EncodeLoadMemory},
 	"_STS": {Operands: 2, ByteCode: 0b_0000_0000_0000_0000, Encode: EncodeStoreValue},
-	// "ST":
-	// "STD":
+	"ST":   {Operands: 2, ByteCode: 0b_1001_0010_0000_0000, Encode: EncodeST},
 	"LPM":  {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLPM}, // zo-form: 1001_0101_110q_1000 (opcode nibble 3) | ls-form: 1001_000d_dddd_01q0 (opcode nibble 4)
 	"ELPM": {Operands: 2, ByteCode: 0b_1001_0000_0000_0000, Encode: EncodeLPM},
 	// "SPM":
@@ -283,6 +282,13 @@ func EncodeStoreMemory(bytecode uint16, _ uint16, rd uint16) [1]uint16 {
 
 func EncodeStoreValue(bytecode uint16, kk uint16, _ uint16) [1]uint16 {
 	encoded := kk
+	return [1]uint16{encoded}
+}
+
+func EncodeST(bytecode uint16, rd uint16, opt uint16) [1]uint16 {
+	encoded := bytecode
+	encoded |= ((rd & 0x1F) << 4)
+	encoded |= (opt & 0xF)
 	return [1]uint16{encoded}
 }
 

@@ -15,9 +15,17 @@ import (
 type PointerRegister byte
 
 const (
-	X PointerRegister = iota
-	Y
-	Z
+	X PointerRegister = 3
+	Y PointerRegister = 2
+	Z PointerRegister = 0
+)
+
+type PointerOptions byte
+
+const (
+	Unchanged PointerOptions = 0
+	PostInc   PointerOptions = 1
+	PreDec    PointerOptions = 2
 )
 
 type Instruction struct {
@@ -324,7 +332,7 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 				if unicode.IsSpace(rune(code[i])) || rune(code[i]) == ',' || rune(code[i]) == ' ' || rune(code[i]) == ';' {
 					break
 				}
-				if strings.ContainsAny(string(code[i]), ".,?/\\[]{}()*&^%$#@!<>-:;\"'") {
+				if strings.ContainsAny(string(code[i]), ".?/\\[]{}()*&^%$#@!<>-:\"'") {
 					return tokens, fmt.Errorf("special character found in variable name")
 				}
 				buf += string(code[i])
@@ -372,7 +380,9 @@ func tokenizeLine(code string) (tokens []Token, err error) {
 		if r == '0' {
 			buf := ""
 			tokenType := ""
-			if len(code) <= i+1 && unicode.IsLetter(rune(code[i+1])) {
+			if len(code) == i+1 {
+				buf = "0"
+			} else if len(code) == i+2 && unicode.IsLetter(rune(code[i+1])) {
 				return tokens, fmt.Errorf("incomplete number on line %d col %d", line, i)
 			} else if code[i+1] == 'x' {
 				tokenType = "Hexidecimal"
@@ -478,8 +488,12 @@ var InstructionParse = map[string]ParserFunc{
 	"ORI":   parseRegImm,
 	"SBC":   parseTwoRegs,
 	"SBIS":  parseSkipBit,
+	"SBIC":  parseSkipBit,
+	"SBRS":  parseSkipBitReg,
+	"SBRC":  parseSkipBitReg,
 	"LDI":   parseRegImm,
 	"IN":    parseIOpsIn,
+	"INC":   parseOneReg,
 	"OUT":   parseIOpsOut,
 	"CPI":   parseRegImm,
 	"POP":   parseOneReg,
@@ -490,10 +504,13 @@ var InstructionParse = map[string]ParserFunc{
 	"BRBS":  pasrseBranchSreg,
 	"RJMP":  parseRelBranch,
 	"RCALL": parseRelBranch,
+	"MOV":   parseTwoRegs,
 	"RET":   parseConst,
 	"LPM":   parseLPM,
 	"LDS":   parseLDS,
+	"LD":    parseLD,
 	"STS":   parseSTS,
+	"ST":    parseST,
 	"ELPM":  parseELPM,
 	"NOP":   parseConst,
 	"TST":   parseTST,
@@ -580,6 +597,7 @@ func parseRegister5bits(reg_str string) (reg_uint uint16, err error) {
 	} else if ok {
 		return uint16(reg_uint), nil
 	}
+
 	if strings.ToUpper(reg_str[0:1]) != "R" {
 		return 0, fmt.Errorf(" argument [%s] is not regiter rXX", reg_str)
 	}
@@ -594,6 +612,12 @@ func parseRegister5bits(reg_str string) (reg_uint uint16, err error) {
 }
 
 func parseRegister4bits(reg_str string) (reg_uint uint16, err error) {
+	reg_uint, ok, err := parsePointerRegisters(reg_str)
+	if err != nil {
+		return 0, err
+	} else if ok {
+		return uint16(reg_uint), nil
+	}
 	if strings.ToUpper(reg_str[0:1]) != "R" {
 		return 0, fmt.Errorf(" argument [%s] is not regiter rXX", reg_str)
 	}
@@ -607,10 +631,35 @@ func parseRegister4bits(reg_str string) (reg_uint uint16, err error) {
 	return uint16(reg_num), nil
 }
 
-func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, err error) {
-	reg, post_inc, err = 0, false, nil
-
-	switch strings.ToUpper(reg_str[0:1]) {
+func parsePointerRegister(reg_str string) (reg PointerRegister, pointerOption PointerOptions, err error) {
+	reg, pointerOption, err = 0, Unchanged, nil
+	regLen := len(reg_str)
+	// TODO: Need to add in +q at some point
+	if regLen > 2 {
+		err = fmt.Errorf("argument [%s] is does not meet format [-X/-Y/-Z, X/Y/Z, X+/Y+/Z+]", reg_str)
+		return
+	}
+	regVal := ""
+	if unicode.IsLetter(rune(reg_str[0])) {
+		if regLen == 2 && unicode.IsLetter(rune(reg_str[1])) {
+			err = fmt.Errorf("argument [%s] is does not meet format [-X/-Y/-Z, X/Y/Z, X+/Y+/Z+]", reg_str)
+			return
+		}
+		if regLen == 1 {
+		} else if reg_str[1] == '+' {
+			pointerOption = PostInc
+		}
+		regVal = strings.ToUpper(reg_str[:1])
+	} else if regLen == 2 && unicode.IsLetter(rune(reg_str[1])) {
+		if reg_str[0] == '-' {
+			pointerOption = PreDec
+		}
+		regVal = strings.ToUpper(reg_str[1:])
+	} else {
+		err = fmt.Errorf("argument [%s] is does not meet format [-X/-Y/-Z, X/Y/Z, X+/Y+/Z+]", reg_str)
+		return
+	}
+	switch regVal {
 	case "X":
 		reg = X
 	case "Y":
@@ -618,13 +667,8 @@ func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, e
 	case "Z":
 		reg = Z
 	default:
-		err = fmt.Errorf(" argument [%s] is not X, Y or Z", reg_str)
+		err = fmt.Errorf("argument [%s] is not X, Y or Z", reg_str)
 	}
-
-	if strings.Contains(reg_str, "+") {
-		post_inc = true
-	}
-
 	return
 }
 
@@ -633,7 +677,6 @@ func parsePointerRegister(reg_str string) (reg PointerRegister, post_inc bool, e
 func getLabelAddress(label string) (addr uint16, err error) {
 	addr, ok := LabelMap[label]
 	if !ok {
-		// panic("FUCK")
 		return 0, fmt.Errorf("label [%s] not found", label)
 	}
 	return addr, nil
@@ -650,6 +693,22 @@ func parseSkipBit(args []string, line_addr int) (ops [2]uint16, err error) {
 	}
 	if ops[0] > 31 {
 		return [2]uint16{0, 0}, fmt.Errorf("uint value [%d] is not a valid flag [0-31]", ops[0])
+	}
+
+	ops[0], err = parseImmidiateUints(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	if ops[0] > 7 {
+		return [2]uint16{0, 0}, fmt.Errorf("uint value [%d] is not a valid flag [0-7]", ops[0])
+	}
+	return ops, nil
+}
+
+func parseSkipBitReg(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops[0], err = parseRegister5bits(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
 	}
 
 	ops[0], err = parseImmidiateUints(args[1])
@@ -805,6 +864,35 @@ func parseLDS(args []string, line_addr int) (ops [2]uint16, err error) {
 	return ops, nil
 }
 
+func parseLD(args []string, line_addr int) (ops [2]uint16, err error) {
+	ops[0], err = parseRegister5bits(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+
+	ptrReg, ptrOpt, err := parsePointerRegister(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	ops[1] = (uint16(ptrReg) << 2) | uint16(ptrOpt)
+
+	return ops, nil
+}
+
+func parseST(args []string, line_addr int) (ops [2]uint16, err error) {
+	ptrReg, ptrOpt, err := parsePointerRegister(args[0])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	ops[0] = (uint16(ptrReg) << 2) | uint16(ptrOpt)
+
+	ops[1], err = parseRegister5bits(args[1])
+	if err != nil {
+		return [2]uint16{0, 0}, err
+	}
+	return ops, nil
+}
+
 func parseSTS(args []string, line_addr int) (ops [2]uint16, err error) {
 	ops[0], err = parseImmidiateUints(args[0])
 	if err != nil {
@@ -843,15 +931,13 @@ func parseLPM(args []string, line_addr int) (ops [2]uint16, err error) {
 		return
 	}
 
-	// NOTE: I have no idea if this is actually true or not
-	//			 I've only seen examples of Z in the docs, so it's
-	//			 unclear whether X or Y are allowed here...
+	// Only Z can be used here
 	if ptr_reg != Z {
 		err = fmt.Errorf("pointer register value must be Z or Z+")
 	}
 
 	// set i bit to 1
-	if post_inc {
+	if post_inc == PostInc {
 		ops[1] = 0b001
 	}
 
