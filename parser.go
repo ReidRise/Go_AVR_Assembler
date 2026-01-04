@@ -728,7 +728,7 @@ func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err er
 		return [2]uint16{0, 0}, err
 	}
 
-	rel_addr := int(label_addr) - line_addr - 1
+	rel_addr := int(label_addr) - line_addr
 
 	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
 	if rel_addr > 2047 || rel_addr < -2048 {
@@ -756,7 +756,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, err
 	}
 
-	rel_addr := int(label_addr) - line_addr - 1
+	rel_addr := int(label_addr) - line_addr
 	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
@@ -773,7 +773,7 @@ func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
 		return [2]uint16{0, 0}, err
 	}
 
-	rel_addr := int(label_addr) - line_addr - 1
+	rel_addr := int(label_addr) - line_addr
 
 	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
 

@@ -133,10 +133,10 @@ sleep_ms:
 
 ; sleep Function
 sleep_s: 
-    LDI r22, 100
-    la: LDI r23, 10
-    l0: LDI r24, 10
-    l1: LDI r25, 20
+    LDI r22, 1
+    la: LDI r23, 1
+    l0: LDI r24, 1
+    l1: LDI r25, 1
     l2: LDI r26, 255
     l3: LDI r27, 255
     l4: DEC r27

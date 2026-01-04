@@ -20,7 +20,7 @@ RJMP BACK
 ; Delay Function
 delay: LDI r22, 1
 la: LDI r23, 1
-l0: LDI r24, 1
+l0: LDI r24, 2
 l1: LDI r25, 10
 l2: LDI r26, 255
 l3: LDI r27, 255
