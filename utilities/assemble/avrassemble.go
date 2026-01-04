@@ -68,6 +68,7 @@ func main() {
 	if err != nil {
 		simplelog.Error(err.Error())
 		avrassembler.DumpLabelMap()
+		avrassembler.DumpVariableMap()
 		os.Exit(1)
 	}
 
@@ -75,6 +76,7 @@ func main() {
 	if err != nil {
 		simplelog.Error(err.Error())
 		avrassembler.DumpLabelMap()
+		avrassembler.DumpVariableMap()
 		os.Exit(1)
 	}
 }

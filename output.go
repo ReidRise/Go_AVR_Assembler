@@ -85,7 +85,7 @@ func WriteToFile(fn string) (err error) {
 			hex := fmt.Sprintf("%x", le_enc)
 			hex = fmt.Sprintf("%04s", hex)
 			compiledAssembly = append(compiledAssembly, hex)
-			simplelog.Debug(fmt.Sprintf("%6s %04s", instructionSection[i].Mnemonic, hex))
+			simplelog.Debug(fmt.Sprintf("Address: 0x%04x %6s %04s", instructionSection[i].Address, instructionSection[i].Mnemonic, hex))
 
 			// Extra handling for 32bit instructions
 			if slices.Contains(LongInstructions, instructionSection[i].Mnemonic) {

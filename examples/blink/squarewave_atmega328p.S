@@ -36,5 +36,5 @@ BRNE l1
 DEC r23
 BRNE l0
 DEC r22
-BREQ la
+BRNE la
 RET

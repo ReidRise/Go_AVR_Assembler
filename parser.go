@@ -48,6 +48,10 @@ type Meta struct {
 	NewSection bool
 }
 
+type DataAddress uint16
+
+type ProgramAddress uint16
+
 func isMacro(macro string) (meta Meta, exists bool) {
 	_, ok := RawMacroSections[macro]
 	if ok {
@@ -80,7 +84,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 			return 0, fmt.Errorf("error in file %s on line %d, %s ", fn, codeLine, err)
 		}
 		instruction.File = fn
-		instruction.Address = int(chunkLine + (startAddress / 2))
+		instruction.Address = int(chunkLine + startAddress)
 		instruction.Line = int(codeLine)
 
 		for _, m := range meta {
@@ -88,7 +92,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				if inMacroDef != "" {
 					return 0, fmt.Errorf("labels cannot be created in macros")
 				}
-				LabelMap[m.Args] = chunkLine + (startAddress / 2)
+				LabelMap[m.Args] = chunkLine + startAddress
 			}
 
 			if m.Operation == "org" {
@@ -102,9 +106,6 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				if err != nil {
 					return 0, fmt.Errorf("error parsing address %s, %s ", m.Args, err)
 				}
-				if (startAddress % 2) != 0 {
-					return 0, fmt.Errorf("address %s is not 16 bit aligned ", m.Args)
-				}
 			}
 
 			if m.Operation == "db" {
@@ -113,7 +114,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				}
 				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
-				startAddress = startAddress + (chunkLine * 2)
+				startAddress = startAddress + chunkLine
 				chunkLine = 0
 
 				// Implementing strings only, more data later
@@ -121,10 +122,10 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				data = append(data, byte(0))
 				entry := DataBlob{
 					Data:    data,
-					Address: startAddress + (chunkLine * 2),
+					Address: startAddress + chunkLine,
 				}
 				DbSections = append(DbSections, entry)
-				startAddress += uint16((len(data) % 2) + len(data))
+				startAddress += uint16((len(data) % 2) + len(data)/2)
 			}
 
 			if m.Operation == "macro" {
@@ -152,7 +153,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 				importFileName := m.Args
 				RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
 				instructions = []Instruction{}
-				startAddress, err = ParseFile(importFileName, uint16(startAddress+(chunkLine*2)))
+				startAddress, err = ParseFile(importFileName, uint16(startAddress+(chunkLine)))
 				chunkLine = 0
 				if err != nil {
 					return 0, err
@@ -207,7 +208,7 @@ func ParseFile(fn string, startAddress uint16) (handoverAddress uint16, err erro
 	}
 
 	RawAssemblySections = append(RawAssemblySections, AssemblySection{Address: startAddress, Assembly: instructions})
-	return uint16(startAddress + (chunkLine * 2)), nil
+	return uint16(startAddress + chunkLine), nil
 }
 
 func parseMeta(tokens []Token) (meta []Meta, parsedTokens int, err error) {
@@ -728,6 +729,8 @@ func pasrseBranchStaticSreg(args []string, line_addr int) (ops [2]uint16, err er
 	}
 
 	rel_addr := int(label_addr) - line_addr - 1
+
+	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
 	}
@@ -754,6 +757,7 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 	}
 
 	rel_addr := int(label_addr) - line_addr - 1
+	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
 	}
@@ -764,11 +768,15 @@ func pasrseBranchSreg(args []string, line_addr int) (ops [2]uint16, err error) {
 
 func parseRelBranch(args []string, line_addr int) (ops [2]uint16, err error) {
 	label_addr, err := getLabelAddress(args[0])
+
 	if err != nil {
 		return [2]uint16{0, 0}, err
 	}
 
 	rel_addr := int(label_addr) - line_addr - 1
+
+	simplelog.Trace(fmt.Sprintf("Branch to %04x from %04x => %d", label_addr, line_addr, rel_addr))
+
 	if rel_addr > 2047 || rel_addr < -2048 {
 		return [2]uint16{0, 0}, fmt.Errorf("relative address [%d] is not in range of +/- 2k", rel_addr)
 	}

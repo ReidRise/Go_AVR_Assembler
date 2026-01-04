@@ -37,3 +37,10 @@ func DumpLabelMap() {
 		simplelog.Trace(fmt.Sprintf("\t%s @ 0x%04x", key, value))
 	}
 }
+
+func DumpVariableMap() {
+	simplelog.Trace("Variables:")
+	for key, value := range VariableMapping {
+		simplelog.Trace(fmt.Sprintf("\t%s @ 0x%04x", key, value))
+	}
+}
